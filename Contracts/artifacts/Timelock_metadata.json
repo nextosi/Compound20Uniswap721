@@ -1,0 +1,561 @@
+{
+	"compiler": {
+		"version": "0.8.26+commit.8a97fa7a"
+	},
+	"language": "Solidity",
+	"output": {
+		"abi": [
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "_owner",
+						"type": "address"
+					},
+					{
+						"internalType": "uint256",
+						"name": "_delay",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "_gracePeriod",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "nonpayable",
+				"type": "constructor"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "bytes32",
+						"name": "operationId",
+						"type": "bytes32"
+					}
+				],
+				"name": "OperationCanceled",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "bytes32",
+						"name": "operationId",
+						"type": "bytes32"
+					},
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "target",
+						"type": "address"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "value",
+						"type": "uint256"
+					},
+					{
+						"indexed": false,
+						"internalType": "string",
+						"name": "signature",
+						"type": "string"
+					},
+					{
+						"indexed": false,
+						"internalType": "bytes",
+						"name": "callData",
+						"type": "bytes"
+					}
+				],
+				"name": "OperationExecuted",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "bytes32",
+						"name": "operationId",
+						"type": "bytes32"
+					},
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "target",
+						"type": "address"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "value",
+						"type": "uint256"
+					},
+					{
+						"indexed": false,
+						"internalType": "string",
+						"name": "signature",
+						"type": "string"
+					},
+					{
+						"indexed": false,
+						"internalType": "bytes",
+						"name": "callData",
+						"type": "bytes"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "earliestExecTime",
+						"type": "uint256"
+					}
+				],
+				"name": "OperationScheduled",
+				"type": "event"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "bytes32",
+						"name": "operationId",
+						"type": "bytes32"
+					}
+				],
+				"name": "cancel",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "delay",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "bytes32",
+						"name": "operationId",
+						"type": "bytes32"
+					}
+				],
+				"name": "execute",
+				"outputs": [],
+				"stateMutability": "payable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "bytes32",
+						"name": "operationId",
+						"type": "bytes32"
+					}
+				],
+				"name": "getEarliestExecutionTime",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "target",
+						"type": "address"
+					},
+					{
+						"internalType": "uint256",
+						"name": "value",
+						"type": "uint256"
+					},
+					{
+						"internalType": "string",
+						"name": "signature",
+						"type": "string"
+					},
+					{
+						"internalType": "bytes",
+						"name": "callData",
+						"type": "bytes"
+					}
+				],
+				"name": "getOperationId",
+				"outputs": [
+					{
+						"internalType": "bytes32",
+						"name": "",
+						"type": "bytes32"
+					}
+				],
+				"stateMutability": "pure",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "bytes32",
+						"name": "operationId",
+						"type": "bytes32"
+					}
+				],
+				"name": "getOperationStatus",
+				"outputs": [
+					{
+						"internalType": "bool",
+						"name": "scheduled",
+						"type": "bool"
+					},
+					{
+						"internalType": "bool",
+						"name": "canceled",
+						"type": "bool"
+					},
+					{
+						"internalType": "bool",
+						"name": "executed",
+						"type": "bool"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "gracePeriod",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "bytes32",
+						"name": "",
+						"type": "bytes32"
+					}
+				],
+				"name": "operations",
+				"outputs": [
+					{
+						"internalType": "address",
+						"name": "target",
+						"type": "address"
+					},
+					{
+						"internalType": "uint256",
+						"name": "value",
+						"type": "uint256"
+					},
+					{
+						"internalType": "string",
+						"name": "signature",
+						"type": "string"
+					},
+					{
+						"internalType": "bytes",
+						"name": "callData",
+						"type": "bytes"
+					},
+					{
+						"internalType": "uint256",
+						"name": "earliestExecTime",
+						"type": "uint256"
+					},
+					{
+						"internalType": "bool",
+						"name": "executed",
+						"type": "bool"
+					},
+					{
+						"internalType": "bool",
+						"name": "canceled",
+						"type": "bool"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "owner",
+				"outputs": [
+					{
+						"internalType": "address",
+						"name": "",
+						"type": "address"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "target",
+						"type": "address"
+					},
+					{
+						"internalType": "uint256",
+						"name": "value",
+						"type": "uint256"
+					},
+					{
+						"internalType": "string",
+						"name": "signature",
+						"type": "string"
+					},
+					{
+						"internalType": "bytes",
+						"name": "callData",
+						"type": "bytes"
+					}
+				],
+				"name": "schedule",
+				"outputs": [
+					{
+						"internalType": "bytes32",
+						"name": "operationId",
+						"type": "bytes32"
+					}
+				],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "newDelay",
+						"type": "uint256"
+					}
+				],
+				"name": "setDelay",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "newGracePeriod",
+						"type": "uint256"
+					}
+				],
+				"name": "setGracePeriod",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "newOwner",
+						"type": "address"
+					}
+				],
+				"name": "transferOwnership",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"stateMutability": "payable",
+				"type": "receive"
+			}
+		],
+		"devdoc": {
+			"events": {
+				"OperationCanceled(bytes32)": {
+					"details": "Emitted when an operation is canceled."
+				},
+				"OperationExecuted(bytes32,address,uint256,string,bytes)": {
+					"details": "Emitted when an operation is executed successfully."
+				},
+				"OperationScheduled(bytes32,address,uint256,string,bytes,uint256)": {
+					"details": "Emitted when a new operation is scheduled."
+				}
+			},
+			"kind": "dev",
+			"methods": {
+				"cancel(bytes32)": {
+					"params": {
+						"operationId": "The unique ID of the operation to cancel"
+					}
+				},
+				"constructor": {
+					"params": {
+						"_delay": "The minimum delay required before executing scheduled operations",
+						"_gracePeriod": "The period after `_delay` during which the operation remains valid",
+						"_owner": "The address of the timelock's owner"
+					}
+				},
+				"execute(bytes32)": {
+					"params": {
+						"operationId": "The unique ID of the operation to execute"
+					}
+				},
+				"getEarliestExecutionTime(bytes32)": {
+					"params": {
+						"operationId": "The ID to check"
+					},
+					"returns": {
+						"_0": "earliestExecTime The timestamp from which the operation can be executed"
+					}
+				},
+				"getOperationId(address,uint256,string,bytes)": {
+					"params": {
+						"callData": "The ABI-encoded parameters for the function",
+						"signature": "The function signature (e.g. \"upgradeTo(address)\")",
+						"target": "The contract address to be called",
+						"value": "The amount of ETH (if any) to send"
+					},
+					"returns": {
+						"_0": "operationId The computed ID"
+					}
+				},
+				"getOperationStatus(bytes32)": {
+					"params": {
+						"operationId": "The ID to check"
+					},
+					"returns": {
+						"canceled": " True if operation is canceled",
+						"executed": " True if operation is executed",
+						"scheduled": "True if operation exists"
+					}
+				},
+				"schedule(address,uint256,string,bytes)": {
+					"params": {
+						"callData": "The ABI-encoded parameters for the function",
+						"signature": "The function signature",
+						"target": "The contract to call",
+						"value": "The amount of ETH to send"
+					},
+					"returns": {
+						"operationId": "The unique ID of the scheduled operation"
+					}
+				},
+				"setDelay(uint256)": {
+					"params": {
+						"newDelay": "The new delay in seconds"
+					}
+				},
+				"setGracePeriod(uint256)": {
+					"params": {
+						"newGracePeriod": "The new grace period in seconds"
+					}
+				},
+				"transferOwnership(address)": {
+					"params": {
+						"newOwner": "The address to become the new owner"
+					}
+				}
+			},
+			"stateVariables": {
+				"delay": {
+					"details": "The minimum delay between scheduling an operation and executing it."
+				},
+				"gracePeriod": {
+					"details": "A Grace Period can be used to define how long after `earliestExecTime`      an operation is valid for execution before it expires.      If the current block time exceeds earliestExecTime + gracePeriod,      the operation can no longer be executed (it has expired)."
+				},
+				"operations": {
+					"details": "Maps an operation's unique ID to the Operation struct data."
+				},
+				"owner": {
+					"details": "The owner has permission to schedule/cancel/execute operations.      Typically, this would be a DAO, multi-sig, or a deployment account."
+				}
+			},
+			"title": "Timelock",
+			"version": 1
+		},
+		"userdoc": {
+			"kind": "user",
+			"methods": {
+				"cancel(bytes32)": {
+					"notice": "Cancels a previously scheduled operation that has not been executed or canceled yet."
+				},
+				"execute(bytes32)": {
+					"notice": "Executes a scheduled operation if the current time is within the allowed window."
+				},
+				"getEarliestExecutionTime(bytes32)": {
+					"notice": "Checks the earliest execution time for an operation."
+				},
+				"getOperationId(address,uint256,string,bytes)": {
+					"notice": "Generates the unique identifier (operationId) for a given call."
+				},
+				"getOperationStatus(bytes32)": {
+					"notice": "Checks if an operation is scheduled, canceled, or executed."
+				},
+				"schedule(address,uint256,string,bytes)": {
+					"notice": "Schedules an operation to be executed no sooner than (block.timestamp + delay)."
+				},
+				"setDelay(uint256)": {
+					"notice": "Updates the delay for newly scheduled operations.          Does not affect operations already scheduled."
+				},
+				"setGracePeriod(uint256)": {
+					"notice": "Updates the grace period for newly scheduled operations.         Does not affect operations already scheduled."
+				},
+				"transferOwnership(address)": {
+					"notice": "Transfers ownership of the timelock to a new address."
+				}
+			},
+			"notice": "A general-purpose timelock contract designed to schedule and execute         upgrade operations or any arbitrary function calls after a set delay.         This contract ensures there is a time window between scheduling and         execution, preventing instant malicious actions.         The contract supports:         1. Queuing upgrade calls (e.g. UUPS \"upgradeTo(address)\")         2. Queuing arbitrary function calls on any target contract         3. Delaying execution by a configurable `delay`         4. Allowing the owner to cancel scheduled operations         5. Enforcing a grace period after `delay` to execute before the operation expires         This contract is compatible with upgradeable proxies in the system, including:         - VaultFactory (UUPS proxy)         - Individual Vault (UUPS proxy)         and can also handle other function calls for future expansions.         The owner (commonly a DAO, multi-sig, or deployment account) controls:         - Timelock configuration         - Scheduling/canceling/executing operations         No placeholders remain. All logic here is complete and functional.",
+			"version": 1
+		}
+	},
+	"settings": {
+		"compilationTarget": {
+			"Contracts/Timelock.sol": "Timelock"
+		},
+		"evmVersion": "cancun",
+		"libraries": {},
+		"metadata": {
+			"bytecodeHash": "ipfs"
+		},
+		"optimizer": {
+			"enabled": false,
+			"runs": 200
+		},
+		"remappings": []
+	},
+	"sources": {
+		"Contracts/Timelock.sol": {
+			"keccak256": "0xf668442d50a7ee03dd76e5e5a3ede25a6068d72733d6d000c5d37f635502f8f5",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://71d9652e45052309fb02108d2361eaae744a1d0e2ec603dc859b294f8b0b8463",
+				"dweb:/ipfs/Qmf5iKgVBRxNYkFK247FtXDAGmUxWEkjikhM4QwXJEFTs1"
+			]
+		}
+	},
+	"version": 1
+}
