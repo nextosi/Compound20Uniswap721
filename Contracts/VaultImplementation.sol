@@ -20,9 +20,10 @@ import { Liquidator as LiquidatorType } from "./Liquidator.sol";
 /**
  * @title VaultImplementation
  * @notice A UUPS-upgradeable vault that manages a single Uniswap V3 position NFT,
- *         issues ERC20 shares to represent user ownership, references external Rebalancer,
- *         Liquidator, and OracleManager, and ensures no repeated onERC721Received or 
- *         mismatched function arguments for Ownable or Liquidator.
+ *         references a Rebalancer, Liquidator, OracleManager, and issues ERC20 shares.
+ *
+ *         We fix the "Stack too deep" error in withdraw(...) by grouping local variables
+ *         into a struct. This reduces the compiler's local variable count.
  */
 contract VaultImplementation is
     ERC20Upgradeable,
@@ -32,7 +33,7 @@ contract VaultImplementation is
     UUPSUpgradeable,
     IERC721Receiver
 {
-    // ------------------ State Variables ------------------
+    // ------------------ State ------------------
 
     address public v3Pool;
     INonfungiblePositionManager public positionManager;
@@ -63,6 +64,9 @@ contract VaultImplementation is
         uint256 depositValue
     );
 
+    /**
+     * @dev Grouping withdraw event arguments in line with function changes
+     */
     event Withdrawn(
         address indexed user,
         uint128 liquidityRemoved,
@@ -80,21 +84,13 @@ contract VaultImplementation is
     event VaultLiquidated(address user, bytes data);
     event SharesSeized(address user, uint256 shares, address recipient);
 
-    // ------------------ UUPS Auth ------------------
+    // ------------------ UUPS ------------------
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 
     // ------------------ Initialization ------------------
 
     /**
-     * @notice Initialization function (once, behind a proxy).
-     * @param _v3Pool          The Uniswap V3 pool address
-     * @param _positionManager The NonfungiblePositionManager
-     * @param _oracleMgr       The OracleManager
-     * @param _rebalancer      The Rebalancer
-     * @param _liquidator      The Liquidator
-     * @param _owner           The vault owner
-     * @param _name            ERC20 name
-     * @param _symbol          ERC20 symbol
+     * @notice Initialization behind a proxy.
      */
     function initialize(
         address _v3Pool,
@@ -106,28 +102,26 @@ contract VaultImplementation is
         string memory _name,
         string memory _symbol
     ) external initializer {
+        // If your local Ownable requires an address param:
+        __Ownable_init(_owner);
+
         __ERC20_init(_name, _symbol);
         __Pausable_init();
         __ReentrancyGuard_init();
-
-        // If your local Ownable requires an address param, do:
-        // __Ownable_init(_owner);
-        // else, if no arguments needed:
-        __Ownable_init();
-
         __UUPSUpgradeable_init();
 
         require(_v3Pool != address(0), "Vault: invalid v3Pool");
         require(_positionManager != address(0), "Vault: invalid positionMgr");
+        require(_oracleMgr != address(0), "Vault: invalid oracle");
+        require(_rebalancer != address(0), "Vault: invalid rebalancer");
+        require(_liquidator != address(0), "Vault: invalid liquidator");
 
         v3Pool = _v3Pool;
         positionManager = INonfungiblePositionManager(_positionManager);
-
         oracleManager = OracleManagerType(_oracleMgr);
         rebalancer = RebalancerType(_rebalancer);
         liquidator = LiquidatorType(_liquidator);
 
-        // If your version of Ownable requires you to manually set ownership:
         _transferOwnership(_owner);
 
         emit ExternalContractsUpdated(_oracleMgr, _rebalancer, _liquidator);
@@ -151,6 +145,7 @@ contract VaultImplementation is
     }
 
     // ------------------ Pausing ------------------
+
     function pauseVault() external onlyOwner {
         _pause();
     }
@@ -159,17 +154,14 @@ contract VaultImplementation is
         _unpause();
     }
 
-    // ------------------ NFT Handling ------------------
+    // ------------------ NFT Handling (Single onERC721Received) ------------------
 
-    /**
-     * @notice onERC721Received with actual logic. Called from NonfungiblePositionManager if vaultTokenId=0.
-     */
     function onERC721Received(
         address operator,
         address from,
         uint256 tokenId,
         bytes calldata /* data */
-    ) external override nonReentrant whenNotPaused returns (bytes4) {
+    ) external override(IERC721Receiver) nonReentrant whenNotPaused returns (bytes4) {
         require(msg.sender == address(positionManager), "Vault: not from NFPM");
         require(vaultTokenId == 0, "Vault: position already exists");
 
@@ -178,27 +170,13 @@ contract VaultImplementation is
         return this.onERC721Received.selector;
     }
 
-    /**
-     * @notice Fallback onERC721Received if another path triggers it. We do minimal logic here.
-     */
-    function onERC721Received(
-        address operator,
-        address from,
-        uint256 tokenId,
-        bytes calldata data
-    ) external override(IERC721Receiver) returns (bytes4) {
-        return this.onERC721Received.selector;
-    }
-
-    // ------------------ Example Deposit (If Manager uses 8-field or 6-field IncreaseLiquidity) ------------------
+    // ------------------ Example Deposit (6-field IncreaseLiquidity) ------------------
 
     function deposit(
         uint256 amount0Desired,
         uint256 amount1Desired,
         uint256 amount0Min,
         uint256 amount1Min,
-        // If your struct is 8 fields, you'd pass tickLower, tickUpper
-        // If it's only 6 fields, remove them. Shown below is the 6-field approach:
         uint256 deadline
     ) external nonReentrant whenNotPaused {
         require(vaultTokenId != 0, "Vault: no NFT in vault");
@@ -207,7 +185,6 @@ contract VaultImplementation is
         uint256 oldVaultValue = _getVaultValue();
         uint256 oldSupply = totalSupply();
 
-        // Example 6-field IncreaseLiquidityParams:
         INonfungiblePositionManager.IncreaseLiquidityParams memory params =
             INonfungiblePositionManager.IncreaseLiquidityParams({
                 tokenId: vaultTokenId,
@@ -218,11 +195,11 @@ contract VaultImplementation is
                 deadline: deadline
             });
 
-        // If your manager has an 8-field version (with tickLower, tickUpper), use that.
         (uint128 addedLiquidity, uint256 used0, uint256 used1) = positionManager.increaseLiquidity(params);
 
         uint256 newVaultValue = _getVaultValue();
-        uint256 depositValue = (oldVaultValue == 0) ? newVaultValue 
+        uint256 depositValue = (oldVaultValue == 0)
+            ? newVaultValue
             : (newVaultValue > oldVaultValue ? (newVaultValue - oldVaultValue) : 0);
 
         uint256 mintedShares;
@@ -231,6 +208,7 @@ contract VaultImplementation is
         } else {
             mintedShares = (depositValue * oldSupply) / (oldVaultValue == 0 ? 1 : oldVaultValue);
         }
+
         if (mintedShares > 0) {
             _mint(msg.sender, mintedShares);
         }
@@ -238,8 +216,24 @@ contract VaultImplementation is
         emit Deposited(msg.sender, used0, used1, mintedShares, depositValue);
     }
 
-    // ------------------ Example Withdraw Logic ------------------
+    // ------------------ Stack-Too-Deep Fix for Withdraw ------------------
 
+    /**
+     * @dev We group local variables for withdraw(...) in a struct to avoid 'Stack too deep'.
+     */
+    struct WithdrawVars {
+        uint256 oldSupply;
+        uint128 liquidityToRemove;
+        uint256 removed0;
+        uint256 removed1;
+        uint256 col0;
+        uint256 col1;
+    }
+
+    /**
+     * @notice Allows user to burn shares, remove partial liquidity, collect tokens, 
+     *         returning them to the user. 
+     */
     function withdraw(
         uint256 sharesToBurn,
         uint256 liquidityPctBps,
@@ -254,14 +248,16 @@ contract VaultImplementation is
 
         _burn(msg.sender, sharesToBurn);
 
-        (, , , , , , , uint128 currentLiquidity, , , , ) =
-            positionManager.positions(vaultTokenId);
+        WithdrawVars memory wv; // local struct
+        {
+            (, , , , , , , uint128 currentLiquidity, , , , ) = positionManager.positions(vaultTokenId);
+            wv.oldSupply = totalSupply() + sharesToBurn;
+            wv.liquidityToRemove = uint128(
+                (uint256(currentLiquidity) * sharesToBurn * liquidityPctBps) / (wv.oldSupply * 10000)
+            );
+        }
 
-        uint256 oldSupply = totalSupply() + sharesToBurn;
-        uint128 liquidityToRemove = uint128(
-            (uint256(currentLiquidity) * sharesToBurn * liquidityPctBps) / (oldSupply * 10000)
-        );
-        if (liquidityToRemove == 0) {
+        if (wv.liquidityToRemove == 0) {
             emit Withdrawn(msg.sender, 0, 0, 0, sharesToBurn);
             return;
         }
@@ -269,25 +265,24 @@ contract VaultImplementation is
         INonfungiblePositionManager.DecreaseLiquidityParams memory params =
             INonfungiblePositionManager.DecreaseLiquidityParams({
                 tokenId: vaultTokenId,
-                liquidity: liquidityToRemove,
+                liquidity: wv.liquidityToRemove,
                 amount0Min: amount0Min,
                 amount1Min: amount1Min,
                 deadline: deadline
             });
 
-        (uint256 removed0, uint256 removed1) = positionManager.decreaseLiquidity(params);
+        (wv.removed0, wv.removed1) = positionManager.decreaseLiquidity(params);
 
-        // collect
         INonfungiblePositionManager.CollectParams memory collectParams =
             INonfungiblePositionManager.CollectParams({
                 tokenId: vaultTokenId,
                 recipient: msg.sender,
-                amount0Max: uint128(removed0),
-                amount1Max: uint128(removed1)
+                amount0Max: uint128(wv.removed0),
+                amount1Max: uint128(wv.removed1)
             });
-        (uint256 col0, uint256 col1) = positionManager.collect(collectParams);
+        (wv.col0, wv.col1) = positionManager.collect(collectParams);
 
-        emit Withdrawn(msg.sender, liquidityToRemove, col0, col1, sharesToBurn);
+        emit Withdrawn(msg.sender, wv.liquidityToRemove, wv.col0, wv.col1, sharesToBurn);
     }
 
     function withdrawNFT(address to) external nonReentrant whenNotPaused {
@@ -311,11 +306,9 @@ contract VaultImplementation is
     }
 
     function liquidatePosition(address user, bytes calldata data) external whenNotPaused {
-        // If your Liquidator expects a uint256, decode from data. e.g.:
-        // (uint256 someValue) = abi.decode(data, (uint256));
-        // liquidator.liquidate(address(this), user, someValue);
-        // Otherwise, if it expects (address, address, bytes):
-        liquidator.liquidate(address(this), user, data);
+        // decode into a uint256 if needed
+        (uint256 liquidationAmount) = abi.decode(data, (uint256));
+        liquidator.liquidate(address(this), user, liquidationAmount);
 
         emit VaultLiquidated(user, data);
     }
@@ -329,7 +322,7 @@ contract VaultImplementation is
         emit SharesSeized(from, shares, recipient);
     }
 
-    // ------------------ Oracle-based Price or Value Queries ------------------
+    // ------------------ Oracle-based Price Queries ------------------
 
     function getUnderlyingPrice() external view returns (uint256 price, uint8 decimals) {
         return oracleManager.getPrice(address(this));
@@ -340,22 +333,7 @@ contract VaultImplementation is
         return p;
     }
 
-    // ------------------ Additional Fallback onERC721Received (If needed) ------------------
-
-    /**
-     * @dev If you still get a "Function with same name" error, remove this one. 
-     *      But typically we keep exactly these two definitions, 
-     *      one with your custom logic, one minimal fallback.
-     */
-    function onERC721Received(
-        address operator,
-        address from,
-        uint256 tokenId,
-        bytes calldata data
-    ) external override(IERC721Receiver) returns (bytes4) {
-        // minimal fallback
-        return this.onERC721Received.selector;
-    }
+    // ------------------ End ------------------
 
     receive() external payable {}
 }
