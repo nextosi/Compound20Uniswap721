@@ -2,113 +2,125 @@
 pragma solidity ^0.8.17;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/Address.sol";
 
 /**
- * @dev This interface should be implemented by a vault that supports liquidation.
- *      The Liquidator calls these functions to:
- *      1. Check a user's share balance (balanceOf).
- *      2. Get the vault's totalSupply of shares.
- *      3. Get the price of the underlying pool or assets (getUnderlyingPrice).
- *      4. Seize shares forcibly from an undercollateralized user (seizeShares).
- *      5. Optionally retrieve additional data if the vault implements collateral ratio logic.
+ * @dev Minimal interface for a Vault that supports forcibly reassigning user shares 
+ *      to a recipient during liquidation. The Liquidator calls:
+ *        1. balanceOf(user) - checks user share balance
+ *        2. totalSupply()   - used for ratio-based calculations
+ *        3. getUnderlyingPrice() - to compute user's share value in the chosen unit (e.g. USD)
+ *        4. seizeShares(...) - forcibly remove shares from one user and assign them to a recipient
  */
 interface IVaultLiquidation {
     function balanceOf(address user) external view returns (uint256);
     function totalSupply() external view returns (uint256);
     function getUnderlyingPrice() external view returns (uint256 price, uint8 decimals);
-    function seizeShares(address from, uint256 shares) external;
 
     /**
-     * @dev If the vault supports an internal check for user liquidation readiness,
-     *      it could expose a function like below. If not, the Liquidator can do
-     *      any needed checks by reading the vault's data externally.
-     *
-     *      function isUserLiquidatable(address user) external view returns (bool);
+     * @notice Forcibly removes `shares` from `from` and transfers them to `recipient`.
+     *         Used by the Liquidator for undercollateralized positions.
      */
+    function seizeShares(address from, uint256 shares, address recipient) external;
 }
 
 /**
  * @title Liquidator
- * @notice A contract that identifies and executes liquidations on users in a vault
- *         if their collateral (represented by shares) is deemed insufficient or
- *         under a specified threshold. The vault shares can be forcibly seized
- *         through the vault's `seizeShares(...)` function.
+ * @notice A contract that can forcibly seize user shares from an undercollateralized position
+ *         in a vault. The seized shares are transferred to this contract's owner (the deployer),
+ *         who can then decide how to handle them (e.g., distribute to a hired liquidator,
+ *         return partially to a pool, penalize the user, etc.).
  *
- *         This contract has the following capabilities:
- *         1. A minimum collateral value threshold (minCollateralValue).
- *         2. A liquidation penalty or bonus that the liquidator might receive.
- *         3. Partial or full liquidation, as determined by input parameters.
- *         4. Checking a user's share value using the vault's price data.
- *         5. Permissioned ownership to adjust parameters.
+ *         Key parameters:
+ *         - minCollateralValue: The required value below which a user is undercollateralized.
+ *         - liquidationFeeBps: A fee in basis points added on top of the seizeAmount, 
+ *           also sent to the owner (deployer).
+ *         - maxLiquidationBps: The maximum fraction (in BPS) of a user's shares 
+ *           that can be seized in one call.
  *
- *         No placeholders remain. All logic is operational for the scenario.
- *         Future expansions can include more advanced liquidation reward mechanics,
- *         multi-token exposure, etc.
+ *         This contract calls `seizeShares(user, totalSeize, owner())` on the vault, 
+ *         transferring forcibly removed shares to the contract's owner.
+ *
+ *         The constructor requires an `initialOwner` address for `Ownable`,
+ *         fixing the "No arguments passed to base constructor" error.
  */
 contract Liquidator is Ownable {
     /**
-     * @dev The minimum USD value (or other unit) a user's position must maintain
-     *      to avoid liquidation. If userValue < minCollateralValue, they can be liquidated.
+     * @dev The minimum value (in the same unit as the vault's price feed) 
+     *      a user must maintain. If their share value < minCollateralValue, 
+     *      they can be liquidated.
      */
     uint256 public minCollateralValue;
 
     /**
-     * @dev A percentage (in basis points) representing a liquidation fee or discount
-     *      given to the liquidator for performing the service. For instance, a 500 basis
-     *      point fee = 5% reward for the liquidator.
+     * @dev A liquidation fee in basis points (e.g., 500 => 5%). 
+     *      This is added on top of `seizeAmount` and also transferred 
+     *      to the contract owner upon liquidation.
      */
     uint256 public liquidationFeeBps;
 
     /**
-     * @dev The maximum proportion of a user's shares (in basis points of userShares) that
-     *      can be seized in a single liquidation call. This helps protect from 100% immediate
-     *      liquidation if partial liquidation is preferred. e.g., 5000 = 50% max seize at once.
+     * @dev The maximum proportion of a user's total shares that can be seized 
+     *      in one liquidation call, in basis points (e.g., 5000 => 50%).
      */
     uint256 public maxLiquidationBps;
 
     /**
-     * @dev Emitted when the minimum collateral value is updated.
+     * @dev Emitted when the minCollateralValue is updated.
      */
     event MinCollateralValueUpdated(uint256 oldValue, uint256 newValue);
 
     /**
-     * @dev Emitted when the liquidation fee in basis points is updated.
+     * @dev Emitted when the liquidation fee is updated.
      */
     event LiquidationFeeBpsUpdated(uint256 oldFee, uint256 newFee);
 
     /**
-     * @dev Emitted when the max liquidation basis points is updated.
+     * @dev Emitted when the maximum liquidation ratio is updated.
      */
     event MaxLiquidationBpsUpdated(uint256 oldMaxBps, uint256 newMaxBps);
 
     /**
      * @dev Emitted after a successful liquidation.
+     * @param vault          The vault being liquidated.
+     * @param liquidator     The caller who triggered the liquidation action.
+     * @param userLiquidated The user whose shares were seized.
+     * @param seizedShares   The base amount of shares seized from the user.
+     * @param feeShares      The fee portion of shares, also seized and given to owner.
+     * @param recipient      The address that receives the seized shares (the contract owner).
      */
     event LiquidationExecuted(
         address indexed vault,
         address indexed liquidator,
         address indexed userLiquidated,
         uint256 seizedShares,
-        uint256 feeShares
+        uint256 feeShares,
+        address recipient
     );
 
     /**
-     * @param _minCollateralValue  Initial minimum collateral value
-     * @param _liquidationFeeBps   Liquidation fee in basis points
-     * @param _maxLiquidationBps   Maximum proportion of user shares that can be seized at once
+     * @notice Constructor calls the Ownable base constructor with `initialOwner` 
+     *         and initializes the liquidation parameters.
+     * @param initialOwner         The address that will own this Liquidator contract.
+     * @param _minCollateralValue  The minimum user share value required to avoid liquidation.
+     * @param _liquidationFeeBps   A fee in basis points added on top of `seizeAmount`.
+     * @param _maxLiquidationBps   The maximum fraction of user shares seizable in one call.
      */
-    constructor(uint256 _minCollateralValue, uint256 _liquidationFeeBps, uint256 _maxLiquidationBps) {
+    constructor(
+        address initialOwner,
+        uint256 _minCollateralValue,
+        uint256 _liquidationFeeBps,
+        uint256 _maxLiquidationBps
+    ) Ownable(initialOwner) {
         require(_maxLiquidationBps <= 10000, "Liquidator: maxLiquidationBps > 100%");
-        require(_liquidationFeeBps <= 2000, "Liquidator: liquidationFeeBps too high for example safety");
+        require(_liquidationFeeBps <= 5000, "Liquidator: feeBps too large"); 
         minCollateralValue = _minCollateralValue;
         liquidationFeeBps = _liquidationFeeBps;
         maxLiquidationBps = _maxLiquidationBps;
     }
 
     /**
-     * @notice Updates the minimum collateral value required to avoid liquidation.
-     * @param newValue The new minimum collateral value
+     * @notice Updates the minimum collateral value (onlyOwner).
+     * @param newValue The new minCollateralValue.
      */
     function setMinCollateralValue(uint256 newValue) external onlyOwner {
         uint256 oldVal = minCollateralValue;
@@ -117,69 +129,62 @@ contract Liquidator is Ownable {
     }
 
     /**
-     * @notice Updates the liquidation fee basis points.
-     * @param newFeeBps The new liquidation fee (in bps)
+     * @notice Updates the liquidation fee in basis points (onlyOwner).
+     * @param newFeeBps The new liquidation fee.
      */
     function setLiquidationFeeBps(uint256 newFeeBps) external onlyOwner {
-        require(newFeeBps <= 5000, "Liquidator: liquidationFeeBps > 50%");
+        require(newFeeBps <= 5000, "Liquidator: fee too large");
         uint256 oldFee = liquidationFeeBps;
         liquidationFeeBps = newFeeBps;
         emit LiquidationFeeBpsUpdated(oldFee, newFeeBps);
     }
 
     /**
-     * @notice Updates the maximum proportion of shares that can be seized in one liquidation call.
-     * @param newMaxBps The new max liquidation in basis points
+     * @notice Updates the max fraction of user shares that can be seized in one call (onlyOwner).
+     * @param newMaxBps The new ratio in basis points.
      */
     function setMaxLiquidationBps(uint256 newMaxBps) external onlyOwner {
         require(newMaxBps <= 10000, "Liquidator: maxLiquidationBps > 100%");
-        uint256 oldMaxBps = maxLiquidationBps;
+        uint256 oldMax = maxLiquidationBps;
         maxLiquidationBps = newMaxBps;
-        emit MaxLiquidationBpsUpdated(oldMaxBps, newMaxBps);
+        emit MaxLiquidationBpsUpdated(oldMax, newMaxBps);
     }
 
     /**
-     * @dev This function is used by external or internal tooling to check if a user is
-     *      below the minCollateralValue threshold. It calculates userValue based on:
-     *      (userShares / totalSupply) * underlyingPrice. Real usage might also factor
-     *      in additional parameters.
-     * @param vault The vault implementing IVaultLiquidation
-     * @param user  The user to check
-     * @return isUnderCollateral True if userValue < minCollateralValue
-     * @return userValue The user's share value in the same unit as minCollateralValue
+     * @dev Checks if a user is undercollateralized by computing their share value 
+     *      from the vault's price feed and comparing it to `minCollateralValue`.
+     * @param vault The vault implementing IVaultLiquidation.
+     * @param user  The user to check.
+     * @return isUnderCollateral True if user's share value < minCollateralValue.
+     * @return userValue         The user's computed share value (in the feed's unit).
      */
-    function checkUnderCollateral(
-        address vault,
-        address user
-    ) public view returns (bool isUnderCollateral, uint256 userValue) {
+    function checkUnderCollateral(address vault, address user)
+        public
+        view
+        returns (bool isUnderCollateral, uint256 userValue)
+    {
         IVaultLiquidation v = IVaultLiquidation(vault);
         uint256 userShares = v.balanceOf(user);
         if (userShares == 0) {
+            // If user has no shares, they effectively have no position.
+            // Return false, value=0, not undercollateralized in the sense of a negative condition.
             return (false, 0);
         }
+
         uint256 _totalSupply = v.totalSupply();
         (uint256 price, ) = v.getUnderlyingPrice();
-
-        // This simplistic logic assumes userValue ~ (userShares / totalSupply) * price
-        // In a more advanced scenario, we'd consider decimals or partial liquidity.
+        // userValue = (price * userShares) / totalSupply
         userValue = (price * userShares) / (_totalSupply == 0 ? 1 : _totalSupply);
 
         isUnderCollateral = (userValue < minCollateralValue);
-        return (isUnderCollateral, userValue);
     }
 
     /**
-     * @notice Liquidates a user if they are undercollateralized by forcibly seizing a portion
-     *         of their vault shares. A portion (the liquidationFeeBps) goes to the liquidator
-     *         as a reward, and the rest might be burned or handled by the vault as needed.
-     *
-     * @dev The vault must implement `seizeShares(address from, uint256 shares)` to forcibly remove shares.
-     *      The vault might distribute them or burn them internally. This function only triggers
-     *      the forced share removal. If partial liquidation is desired, pass `seizeAmount` accordingly.
-     *
-     * @param vault      The vault address implementing IVaultLiquidation
-     * @param user       The undercollateralized user to liquidate
-     * @param seizeAmount The number of shares to seize from the user
+     * @notice Liquidates a user if they are undercollateralized by seizing a specified 
+     *         number of shares (plus a fee) and transferring them to this contract's owner.
+     * @param vault       The vault address implementing IVaultLiquidation.
+     * @param user        The undercollateralized user to liquidate.
+     * @param seizeAmount The base number of shares to seize (excluding fee).
      */
     function liquidate(
         address vault,
@@ -197,27 +202,19 @@ contract Liquidator is Ownable {
         uint256 userShares = v.balanceOf(user);
         require(userShares >= seizeAmount, "Liquidator: user has fewer shares than seizeAmount");
 
-        // Enforce max liquidation
+        // Enforce max liquidation ratio
         uint256 maxSeizable = (userShares * maxLiquidationBps) / 10000;
-        require(seizeAmount <= maxSeizable, "Liquidator: exceed maxLiquidationBps limit");
+        require(seizeAmount <= maxSeizable, "Liquidator: exceed max liquidation ratio");
 
-        // Compute fee in shares for the liquidator
+        // Compute fee in shares
         uint256 feeShares = (seizeAmount * liquidationFeeBps) / 10000;
-        uint256 totalSeize = seizeAmount + feeShares; 
-        // The vault can interpret that the 'additional' feeShares are also removed from user
-        // Or the vault might have a separate approach. We'll keep it simple:
-        // 1. seizeShares(user, seizeAmount + feeShares)
-        // 2. This function does not handle distribution of those shares, it just calls seizeShares.
+        uint256 totalSeize = seizeAmount + feeShares;
+        require(userShares >= totalSeize, "Liquidator: totalSeize > userShares");
 
-        require(userShares >= totalSeize, "Liquidator: totalSeize exceeds user shares");
+        // Forcibly remove shares from the user and assign them to this contract's owner 
+        // so the owner can decide how to handle them (reward a third-party, penalize user, etc.).
+        v.seizeShares(user, totalSeize, owner());
 
-        // Forcibly remove user's shares
-        v.seizeShares(user, totalSeize);
-
-        // In a real design, the vault might track which address receives the feeShares. 
-        // Some vaults might burn the seizedAmount and mint the fee to the liquidator, etc.
-        // This function is just the trigger.
-
-        emit LiquidationExecuted(vault, msg.sender, user, seizeAmount, feeShares);
+        emit LiquidationExecuted(vault, msg.sender, user, seizeAmount, feeShares, owner());
     }
 }

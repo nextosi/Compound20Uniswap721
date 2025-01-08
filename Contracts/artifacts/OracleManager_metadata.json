@@ -1,0 +1,457 @@
+{
+	"compiler": {
+		"version": "0.8.28+commit.7893614a"
+	},
+	"language": "Solidity",
+	"output": {
+		"abi": [
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "initialOwner",
+						"type": "address"
+					}
+				],
+				"stateMutability": "nonpayable",
+				"type": "constructor"
+			},
+			{
+				"inputs": [],
+				"name": "T",
+				"type": "error"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "token",
+						"type": "address"
+					},
+					{
+						"indexed": false,
+						"internalType": "address",
+						"name": "primaryAggregator",
+						"type": "address"
+					},
+					{
+						"indexed": false,
+						"internalType": "address",
+						"name": "fallbackAggregator",
+						"type": "address"
+					},
+					{
+						"indexed": false,
+						"internalType": "bool",
+						"name": "useFallbackIfError",
+						"type": "bool"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint8",
+						"name": "decimalsOverride",
+						"type": "uint8"
+					},
+					{
+						"indexed": false,
+						"internalType": "bool",
+						"name": "isVaultToken",
+						"type": "bool"
+					}
+				],
+				"name": "OracleConfigUpdated",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "previousOwner",
+						"type": "address"
+					},
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "newOwner",
+						"type": "address"
+					}
+				],
+				"name": "OwnershipTransferred",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "vaultToken",
+						"type": "address"
+					},
+					{
+						"indexed": false,
+						"internalType": "address",
+						"name": "token0Aggregator",
+						"type": "address"
+					},
+					{
+						"indexed": false,
+						"internalType": "address",
+						"name": "token1Aggregator",
+						"type": "address"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint8",
+						"name": "token0Decimals",
+						"type": "uint8"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint8",
+						"name": "token1Decimals",
+						"type": "uint8"
+					}
+				],
+				"name": "VaultUnderlyingFeedsUpdated",
+				"type": "event"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "token",
+						"type": "address"
+					}
+				],
+				"name": "getPrice",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "price",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint8",
+						"name": "decimals",
+						"type": "uint8"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "",
+						"type": "address"
+					}
+				],
+				"name": "oracleConfigs",
+				"outputs": [
+					{
+						"internalType": "address",
+						"name": "primaryAggregator",
+						"type": "address"
+					},
+					{
+						"internalType": "address",
+						"name": "fallbackAggregator",
+						"type": "address"
+					},
+					{
+						"internalType": "bool",
+						"name": "useFallbackIfError",
+						"type": "bool"
+					},
+					{
+						"internalType": "uint8",
+						"name": "decimalsOverride",
+						"type": "uint8"
+					},
+					{
+						"internalType": "bool",
+						"name": "isVaultToken",
+						"type": "bool"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "owner",
+				"outputs": [
+					{
+						"internalType": "address",
+						"name": "",
+						"type": "address"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "renounceOwnership",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "token",
+						"type": "address"
+					},
+					{
+						"internalType": "address",
+						"name": "primaryAggregator",
+						"type": "address"
+					},
+					{
+						"internalType": "address",
+						"name": "fallbackAggregator",
+						"type": "address"
+					},
+					{
+						"internalType": "bool",
+						"name": "useFallbackIfErr",
+						"type": "bool"
+					},
+					{
+						"internalType": "uint8",
+						"name": "decimalsOvr",
+						"type": "uint8"
+					},
+					{
+						"internalType": "bool",
+						"name": "isVaultToken",
+						"type": "bool"
+					}
+				],
+				"name": "setOracleConfig",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "vaultToken",
+						"type": "address"
+					},
+					{
+						"internalType": "address",
+						"name": "token0Agg",
+						"type": "address"
+					},
+					{
+						"internalType": "address",
+						"name": "token1Agg",
+						"type": "address"
+					},
+					{
+						"internalType": "uint8",
+						"name": "token0Dec",
+						"type": "uint8"
+					},
+					{
+						"internalType": "uint8",
+						"name": "token1Dec",
+						"type": "uint8"
+					}
+				],
+				"name": "setVaultUnderlyingFeeds",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "newOwner",
+						"type": "address"
+					}
+				],
+				"name": "transferOwnership",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "",
+						"type": "address"
+					}
+				],
+				"name": "vaultFeeds",
+				"outputs": [
+					{
+						"internalType": "address",
+						"name": "token0Aggregator",
+						"type": "address"
+					},
+					{
+						"internalType": "address",
+						"name": "token1Aggregator",
+						"type": "address"
+					},
+					{
+						"internalType": "uint8",
+						"name": "token0Decimals",
+						"type": "uint8"
+					},
+					{
+						"internalType": "uint8",
+						"name": "token1Decimals",
+						"type": "uint8"
+					},
+					{
+						"internalType": "bool",
+						"name": "exists",
+						"type": "bool"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			}
+		],
+		"devdoc": {
+			"kind": "dev",
+			"methods": {
+				"owner()": {
+					"details": "Returns the address of the current owner."
+				},
+				"renounceOwnership()": {
+					"details": "Leaves the contract without owner. It will not be possible to call `onlyOwner` functions anymore. Can only be called by the current owner. NOTE: Renouncing ownership will leave the contract without an owner, thereby removing any functionality that is only available to the owner."
+				},
+				"transferOwnership(address)": {
+					"details": "Transfers ownership of the contract to a new account (`newOwner`). Can only be called by the current owner."
+				}
+			},
+			"version": 1
+		},
+		"userdoc": {
+			"kind": "user",
+			"methods": {
+				"getPrice(address)": {
+					"notice": "Get the current price for a token or vault token in aggregator decimals (commonly 1e8)."
+				},
+				"oracleConfigs(address)": {
+					"notice": "token -> OracleData"
+				},
+				"setOracleConfig(address,address,address,bool,uint8,bool)": {
+					"notice": "Sets or updates an oracle config for a given token or vault."
+				},
+				"setVaultUnderlyingFeeds(address,address,address,uint8,uint8)": {
+					"notice": "Sets aggregator references for a vault token’s underlying token0, token1"
+				},
+				"vaultFeeds(address)": {
+					"notice": "vaultToken -> VaultUnderlyingFeeds"
+				}
+			},
+			"version": 1
+		}
+	},
+	"settings": {
+		"compilationTarget": {
+			"Contracts/OracleManager.sol": "OracleManager"
+		},
+		"evmVersion": "constantinople",
+		"libraries": {},
+		"metadata": {
+			"bytecodeHash": "ipfs"
+		},
+		"optimizer": {
+			"enabled": true,
+			"runs": 200
+		},
+		"remappings": []
+	},
+	"sources": {
+		"@uniswap/v3-core/contracts/libraries/FixedPoint96.sol": {
+			"keccak256": "0x0ba8a9b95a956a4050749c0158e928398c447c91469682ca8a7cc7e77a7fe032",
+			"license": "GPL-2.0-or-later",
+			"urls": [
+				"bzz-raw://186d3b528866065a5856f96d2aeec698efa99f8da913e9adf34f8cc296cc993d",
+				"dweb:/ipfs/QmUAiMvtAQp8c9dy57bqJYzG7hkb1uChiPaQmt264skoqP"
+			]
+		},
+		"@uniswap/v3-core/contracts/libraries/FullMath.sol": {
+			"keccak256": "0xeb966aa0ba2cca10735d95172c76393bb9237a70464d2331170e6a45bb5e1903",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://000b6066ee725f656b9047e6eebd1b0df749f4fec628dc267a2d97cc70151c54",
+				"dweb:/ipfs/Qmf9z3jyMJTtD7GAcCLxWFxMJs3LizjoNoDzKWHBP3h3d6"
+			]
+		},
+		"Contracts/OracleManager.sol": {
+			"keccak256": "0x63f95a9c0f4be1b0ee3ff7836f35927c36d6669e074ee4494b4249daa72ba7b5",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://51d91fb484185fa58a5f1b08965e6d985e2a727502e058d8e5cc961179e23baa",
+				"dweb:/ipfs/QmY2rGRvEQba55FHWL8kKLSGG25jZopdajD3yYVuMCPyGW"
+			]
+		},
+		"https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v4.8.3/contracts/access/Ownable.sol": {
+			"keccak256": "0xa94b34880e3c1b0b931662cb1c09e5dfa6662f31cba80e07c5ee71cd135c9673",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://40fb1b5102468f783961d0af743f91b9980cf66b50d1d12009f6bb1869cea4d2",
+				"dweb:/ipfs/QmYqEbJML4jB1GHbzD4cUZDtJg5wVwNm3vDJq1GbyDus8y"
+			]
+		},
+		"https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v4.8.3/contracts/utils/Address.sol": {
+			"keccak256": "0xf96f969e24029d43d0df89e59d365f277021dac62b48e1c1e3ebe0acdd7f1ca1",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://ec772b45a624be516f1c81970caa8a2e144301e9d0921cbc1a2789fef39a1269",
+				"dweb:/ipfs/QmNyjwxCrGhQMyzLD93oUobJXVe9ceJvRvfXwbEtuxPiEj"
+			]
+		},
+		"https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v4.8.3/contracts/utils/Context.sol": {
+			"keccak256": "0xe2e337e6dde9ef6b680e07338c493ebea1b5fd09b43424112868e9cc1706bca7",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://6df0ddf21ce9f58271bdfaa85cde98b200ef242a05a3f85c2bc10a8294800a92",
+				"dweb:/ipfs/QmRK2Y5Yc6BK7tGKkgsgn3aJEQGi5aakeSPZvS65PV8Xp3"
+			]
+		},
+		"https://github.com/Uniswap/v3-core/blob/0.8/contracts/libraries/TickMath.sol": {
+			"keccak256": "0x5c57de03a91cc2ec8939865dbbcb0197bb6c353b711075eefd8e0fca5e102129",
+			"license": "GPL-2.0-or-later",
+			"urls": [
+				"bzz-raw://1e994c24fd891ef8a3f5dbf5eba42b34feaf05e0376a29f91322faa18054449c",
+				"dweb:/ipfs/QmNdUJGUQxd1dPkMbnA5f5UNqakxRkQE5r7bTZJAuHeapS"
+			]
+		},
+		"https://github.com/Uniswap/v3-periphery/blob/0.8/contracts/libraries/LiquidityAmounts.sol": {
+			"keccak256": "0x42b9bc79b44cfe16049616866862b7eb8bd7b342df1e3da5c7497506f007ecdb",
+			"license": "GPL-2.0-or-later",
+			"urls": [
+				"bzz-raw://7f1ae92116f8908978e3937e40a0eb14479bbcd1e6b91da176c0b25b93f7718d",
+				"dweb:/ipfs/Qmcud1yY7KgQgq2Ykx3e2VecPabMCXfXnrRVSDFL3g5kVC"
+			]
+		},
+		"https://github.com/smartcontractkit/chainlink/blob/v1.6.0/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol": {
+			"keccak256": "0xf2b6c9adb3552254df1445b73563cf014434ff5e78663e9b961b6c059506ceb5",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://6c1f59e0c7334c22fb54288728fc32546bdc9c8133d6db0d60223e3c28f52120",
+				"dweb:/ipfs/QmeuxawUVBhMWQJXaEhhnubCTc4Jwn5wYK8gbhq6NjrpfG"
+			]
+		}
+	},
+	"version": 1
+}

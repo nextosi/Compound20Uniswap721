@@ -1,0 +1,111 @@
+{
+	"deploy": {
+		"VM:-": {
+			"linkReferences": {},
+			"autoDeployLib": true
+		},
+		"main:1": {
+			"linkReferences": {},
+			"autoDeployLib": true
+		},
+		"ropsten:3": {
+			"linkReferences": {},
+			"autoDeployLib": true
+		},
+		"rinkeby:4": {
+			"linkReferences": {},
+			"autoDeployLib": true
+		},
+		"kovan:42": {
+			"linkReferences": {},
+			"autoDeployLib": true
+		},
+		"goerli:5": {
+			"linkReferences": {},
+			"autoDeployLib": true
+		},
+		"Custom": {
+			"linkReferences": {},
+			"autoDeployLib": true
+		}
+	},
+	"data": {
+		"bytecode": {
+			"functionDebugData": {},
+			"generatedSources": [],
+			"linkReferences": {},
+			"object": "60566050600b82828239805160001a6073146043577f4e487b7100000000000000000000000000000000000000000000000000000000600052600060045260246000fd5b30600052607381538281f3fe73000000000000000000000000000000000000000030146080604052600080fdfea26469706673582212209ab156a41b5d49d47f7db8743e5c7c6b255cef7a5b14898453e121cd8e2031b264736f6c634300081c0033",
+			"opcodes": "PUSH1 0x56 PUSH1 0x50 PUSH1 0xB DUP3 DUP3 DUP3 CODECOPY DUP1 MLOAD PUSH1 0x0 BYTE PUSH1 0x73 EQ PUSH1 0x43 JUMPI PUSH32 0x4E487B7100000000000000000000000000000000000000000000000000000000 PUSH1 0x0 MSTORE PUSH1 0x0 PUSH1 0x4 MSTORE PUSH1 0x24 PUSH1 0x0 REVERT JUMPDEST ADDRESS PUSH1 0x0 MSTORE PUSH1 0x73 DUP2 MSTORE8 DUP3 DUP2 RETURN INVALID PUSH20 0x0 ADDRESS EQ PUSH1 0x80 PUSH1 0x40 MSTORE PUSH1 0x0 DUP1 REVERT INVALID LOG2 PUSH5 0x6970667358 0x22 SLT KECCAK256 SWAP11 0xB1 JUMP LOG4 SHL TSTORE BLOBHASH 0xD4 PUSH32 0x7DB8743E5C7C6B255CEF7A5B14898453E121CD8E2031B264736F6C634300081C STOP CALLER ",
+			"sourceMap": "496:5741:1:-:0;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;"
+		},
+		"deployedBytecode": {
+			"functionDebugData": {},
+			"generatedSources": [],
+			"immutableReferences": {},
+			"linkReferences": {},
+			"object": "73000000000000000000000000000000000000000030146080604052600080fdfea26469706673582212209ab156a41b5d49d47f7db8743e5c7c6b255cef7a5b14898453e121cd8e2031b264736f6c634300081c0033",
+			"opcodes": "PUSH20 0x0 ADDRESS EQ PUSH1 0x80 PUSH1 0x40 MSTORE PUSH1 0x0 DUP1 REVERT INVALID LOG2 PUSH5 0x6970667358 0x22 SLT KECCAK256 SWAP11 0xB1 JUMP LOG4 SHL TSTORE BLOBHASH 0xD4 PUSH32 0x7DB8743E5C7C6B255CEF7A5B14898453E121CD8E2031B264736F6C634300081C STOP CALLER ",
+			"sourceMap": "496:5741:1:-:0;;;;;;;;"
+		},
+		"gasEstimates": {
+			"creation": {
+				"codeDepositCost": "17200",
+				"executionCost": "97",
+				"totalCost": "17297"
+			},
+			"internal": {
+				"_checkNonPayable()": "infinite",
+				"_setAdmin(address)": "infinite",
+				"_setBeacon(address)": "infinite",
+				"_setImplementation(address)": "infinite",
+				"changeAdmin(address)": "infinite",
+				"getAdmin()": "infinite",
+				"getBeacon()": "infinite",
+				"getImplementation()": "infinite",
+				"upgradeBeaconToAndCall(address,bytes memory)": "infinite",
+				"upgradeToAndCall(address,bytes memory)": "infinite"
+			}
+		},
+		"methodIdentifiers": {}
+	},
+	"abi": [
+		{
+			"inputs": [
+				{
+					"internalType": "address",
+					"name": "admin",
+					"type": "address"
+				}
+			],
+			"name": "ERC1967InvalidAdmin",
+			"type": "error"
+		},
+		{
+			"inputs": [
+				{
+					"internalType": "address",
+					"name": "beacon",
+					"type": "address"
+				}
+			],
+			"name": "ERC1967InvalidBeacon",
+			"type": "error"
+		},
+		{
+			"inputs": [
+				{
+					"internalType": "address",
+					"name": "implementation",
+					"type": "address"
+				}
+			],
+			"name": "ERC1967InvalidImplementation",
+			"type": "error"
+		},
+		{
+			"inputs": [],
+			"name": "ERC1967NonPayable",
+			"type": "error"
+		}
+	]
+}

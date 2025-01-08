@@ -1,0 +1,100 @@
+{
+	"deploy": {
+		"VM:-": {
+			"linkReferences": {},
+			"autoDeployLib": true
+		},
+		"main:1": {
+			"linkReferences": {},
+			"autoDeployLib": true
+		},
+		"ropsten:3": {
+			"linkReferences": {},
+			"autoDeployLib": true
+		},
+		"rinkeby:4": {
+			"linkReferences": {},
+			"autoDeployLib": true
+		},
+		"kovan:42": {
+			"linkReferences": {},
+			"autoDeployLib": true
+		},
+		"goerli:5": {
+			"linkReferences": {},
+			"autoDeployLib": true
+		},
+		"Custom": {
+			"linkReferences": {},
+			"autoDeployLib": true
+		}
+	},
+	"data": {
+		"bytecode": {
+			"functionDebugData": {},
+			"generatedSources": [],
+			"linkReferences": {},
+			"object": "",
+			"opcodes": "",
+			"sourceMap": ""
+		},
+		"deployedBytecode": {
+			"functionDebugData": {},
+			"generatedSources": [],
+			"immutableReferences": {},
+			"linkReferences": {},
+			"object": "",
+			"opcodes": "",
+			"sourceMap": ""
+		},
+		"gasEstimates": null,
+		"methodIdentifiers": {
+			"slot0()": "3850c7bd"
+		}
+	},
+	"abi": [
+		{
+			"inputs": [],
+			"name": "slot0",
+			"outputs": [
+				{
+					"internalType": "uint160",
+					"name": "sqrtPriceX96",
+					"type": "uint160"
+				},
+				{
+					"internalType": "int24",
+					"name": "tick",
+					"type": "int24"
+				},
+				{
+					"internalType": "uint16",
+					"name": "observationIndex",
+					"type": "uint16"
+				},
+				{
+					"internalType": "uint16",
+					"name": "observationCardinality",
+					"type": "uint16"
+				},
+				{
+					"internalType": "uint16",
+					"name": "observationCardinalityNext",
+					"type": "uint16"
+				},
+				{
+					"internalType": "uint8",
+					"name": "feeProtocol",
+					"type": "uint8"
+				},
+				{
+					"internalType": "bool",
+					"name": "unlocked",
+					"type": "bool"
+				}
+			],
+			"stateMutability": "view",
+			"type": "function"
+		}
+	]
+}

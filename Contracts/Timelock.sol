@@ -1,299 +1,370 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol";
+
+import "./OracleManager.sol";
+
 /**
- * @title Timelock
- * @notice A general-purpose timelock contract designed to schedule and execute
- *         upgrade operations or any arbitrary function calls after a set delay.
- *         This contract ensures there is a time window between scheduling and
- *         execution, preventing instant malicious actions.
- *
- *         The contract supports:
- *         1. Queuing upgrade calls (e.g. UUPS "upgradeTo(address)")
- *         2. Queuing arbitrary function calls on any target contract
- *         3. Delaying execution by a configurable `delay`
- *         4. Allowing the owner to cancel scheduled operations
- *         5. Enforcing a grace period after `delay` to execute before the operation expires
- *
- *         This contract is compatible with upgradeable proxies in the system, including:
- *         - VaultFactory (UUPS proxy)
- *         - Individual Vault (UUPS proxy)
- *         and can also handle other function calls for future expansions.
- *
- *         The owner (commonly a DAO, multi-sig, or deployment account) controls:
- *         - Timelock configuration
- *         - Scheduling/canceling/executing operations
- *
- *         No placeholders remain. All logic here is complete and functional.
+ * @dev Minimal interface for a Vault that the Rebalancer interacts with.
+ *      Rebalancer calls:
+ *        1. vaultPositionTokenId() to get the Uniswap V3 position ID
+ *        2. positionManager() to get the NonfungiblePositionManager address
+ *        3. getUnderlyingPrice() if we need to check the vault’s current price (poolPrice)
+ *        4. owner() if gatingActive is set, only that owner/timelock can call the rebalance
  */
-contract Timelock {
+interface IVaultRebalance {
+    function vaultPositionTokenId() external view returns (uint256);
+    function positionManager() external view returns (address);
+    function owner() external view returns (address);
+    function getUnderlyingPrice() external view returns (uint256 price, uint8 decimals);
+}
+
+/**
+ * @title Rebalancer
+ * @notice A contract that can perform rebalancing on a Uniswap V3 position owned by a vault:
+ *         1) Optionally enforce gating by requiring that only an authorized address (vault owner/timelock) can call
+ *         2) Optionally enforce price constraints (minPriceAllowed, maxPriceAllowed) by comparing 
+ *            the vault’s reported pool price to the allowed range
+ *         3) Remove liquidity from old range (decreaseLiquidity)
+ *         4) Collect tokens
+ *         5) Optionally add liquidity into a new range (increaseLiquidity)
+ *
+ *         This contract references an OracleManager only if needed for advanced aggregator checks. 
+ *         Currently, we demonstrate a direct getUnderlyingPrice() call on the vault if enforcePriceConstraints is set.
+ *
+ *         The data parameter for rebalance is flexible, letting the caller pass newTickLower, newTickUpper, etc.
+ */
+contract Rebalancer is Ownable {
     /**
-     * @dev A scheduled operation can either be an upgrade or any arbitrary function call.
-     *      The structure stores all data required to execute the call.
-     *
-     * @param target           The contract address where the call will be executed
-     * @param value            The amount of native currency (ETH) to send with the call
-     * @param signature        The function signature to be called (e.g. "upgradeTo(address)")
-     * @param callData         The encoded parameters for the function call
-     * @param earliestExecTime The earliest timestamp at which this operation can be executed
-     * @param executed         Whether this operation has already been executed
-     * @param canceled         Whether this operation has been canceled
+     * @dev Reference to an OracleManager if you want aggregator checks 
+     *      or more advanced usage. Not strictly required if the vault 
+     *      itself provides getUnderlyingPrice().
      */
-    struct Operation {
-        address target;
-        uint256 value;
-        string signature;
-        bytes callData;
-        uint256 earliestExecTime;
-        bool executed;
-        bool canceled;
+    OracleManager public oracleManager;
+
+    /**
+     * @dev For each vault, store whether gating and price constraints 
+     *      are enforced, along with minPriceAllowed and maxPriceAllowed. 
+     *      The vault’s authorizedCaller is typically the vault owner or a timelock.
+     */
+    struct VaultOptions {
+        bool gatingActive;
+        address authorizedCaller;    // e.g. vault owner, timelock, or DAO
+        bool enforcePriceConstraints;
+        uint256 minPriceAllowed;    // in 1e8 or aggregator decimals
+        uint256 maxPriceAllowed;    // in 1e8 or aggregator decimals
     }
 
     /**
-     * @dev A Grace Period can be used to define how long after `earliestExecTime`
-     *      an operation is valid for execution before it expires.
-     *
-     *      If the current block time exceeds earliestExecTime + gracePeriod,
-     *      the operation can no longer be executed (it has expired).
+     * @dev vault -> VaultOptions
      */
-    uint256 public gracePeriod;
+    mapping(address => VaultOptions) public vaultOptions;
 
     /**
-     * @dev The minimum delay between scheduling an operation and executing it.
+     * @dev Emitted after a successful rebalance operation.
      */
-    uint256 public delay;
-
-    /**
-     * @dev The owner has permission to schedule/cancel/execute operations.
-     *      Typically, this would be a DAO, multi-sig, or a deployment account.
-     */
-    address public owner;
-
-    /**
-     * @dev Maps an operation's unique ID to the Operation struct data.
-     */
-    mapping(bytes32 => Operation) public operations;
-
-    /**
-     * @dev Emitted when a new operation is scheduled.
-     */
-    event OperationScheduled(
-        bytes32 indexed operationId,
-        address indexed target,
-        uint256 value,
-        string signature,
-        bytes callData,
-        uint256 earliestExecTime
+    event RebalancePerformed(
+        address indexed vault,
+        uint256 tokenId,
+        int24 oldTickLower,
+        int24 oldTickUpper,
+        int24 newTickLower,
+        int24 newTickUpper,
+        uint256 amount0Removed,
+        uint256 amount1Removed,
+        uint256 amount0Added,
+        uint256 amount1Added
     );
 
     /**
-     * @dev Emitted when an operation is canceled.
+     * @dev Emitted whenever we update the OracleManager reference.
      */
-    event OperationCanceled(bytes32 indexed operationId);
+    event OracleManagerUpdated(address newOracle);
 
     /**
-     * @dev Emitted when an operation is executed successfully.
+     * @dev Emitted whenever we update a vault’s configuration (gating, price constraints, etc).
      */
-    event OperationExecuted(
-        bytes32 indexed operationId,
-        address indexed target,
-        uint256 value,
-        string signature,
-        bytes callData
+    event VaultOptionsUpdated(
+        address indexed vault,
+        bool gatingActive,
+        address authorizedCaller,
+        bool enforcePriceConstraints,
+        uint256 minPriceAllowed,
+        uint256 maxPriceAllowed
     );
 
     /**
-     * @dev Ensures only the owner can call restricted functions.
+     * @param _oracleManager The OracleManager, if needed for aggregator checks or future expansions
      */
-    modifier onlyOwner() {
-        require(msg.sender == owner, "Timelock: caller is not the owner");
-        _;
+    constructor(address _oracleManager) {
+        oracleManager = OracleManager(_oracleManager);
+        emit OracleManagerUpdated(_oracleManager);
     }
 
     /**
-     * @param _owner        The address of the timelock's owner
-     * @param _delay        The minimum delay required before executing scheduled operations
-     * @param _gracePeriod  The period after `_delay` during which the operation remains valid
+     * @notice Updates the reference to OracleManager if needed (onlyOwner).
+     * @param newOracle The new OracleManager address
      */
-    constructor(address _owner, uint256 _delay, uint256 _gracePeriod) {
-        require(_owner != address(0), "Timelock: invalid owner");
-        require(_gracePeriod > 0, "Timelock: gracePeriod must be > 0");
-        owner = _owner;
-        delay = _delay;
-        gracePeriod = _gracePeriod;
+    function setOracleManager(address newOracle) external onlyOwner {
+        oracleManager = OracleManager(newOracle);
+        emit OracleManagerUpdated(newOracle);
     }
 
     /**
-     * @notice Transfers ownership of the timelock to a new address.
-     * @param newOwner The address to become the new owner
+     * @notice Updates gating and price constraints for a specific vault (onlyOwner).
+     *         gatingActive => if true, only authorizedCaller can call rebalance for that vault
+     *         enforcePriceConstraints => if true, we check the vault’s getUnderlyingPrice 
+     *                                   against minPriceAllowed, maxPriceAllowed
      */
-    function transferOwnership(address newOwner) external onlyOwner {
-        require(newOwner != address(0), "Timelock: invalid new owner");
-        owner = newOwner;
-    }
+    function setVaultOptions(
+        address vault,
+        bool gatingActive,
+        address authorizedCaller,
+        bool enforcePriceConstraints,
+        uint256 minPriceAllowed,
+        uint256 maxPriceAllowed
+    ) external onlyOwner {
+        VaultOptions storage opts = vaultOptions[vault];
+        opts.gatingActive = gatingActive;
+        opts.authorizedCaller = authorizedCaller;
+        opts.enforcePriceConstraints = enforcePriceConstraints;
+        opts.minPriceAllowed = minPriceAllowed;
+        opts.maxPriceAllowed = maxPriceAllowed;
 
-    /**
-     * @notice Updates the delay for newly scheduled operations. 
-     *         Does not affect operations already scheduled.
-     * @param newDelay The new delay in seconds
-     */
-    function setDelay(uint256 newDelay) external onlyOwner {
-        delay = newDelay;
-    }
-
-    /**
-     * @notice Updates the grace period for newly scheduled operations.
-     *         Does not affect operations already scheduled.
-     * @param newGracePeriod The new grace period in seconds
-     */
-    function setGracePeriod(uint256 newGracePeriod) external onlyOwner {
-        require(newGracePeriod > 0, "Timelock: invalid gracePeriod");
-        gracePeriod = newGracePeriod;
-    }
-
-    /**
-     * @notice Generates the unique identifier (operationId) for a given call.
-     * @param target     The contract address to be called
-     * @param value      The amount of ETH (if any) to send
-     * @param signature  The function signature (e.g. "upgradeTo(address)")
-     * @param callData   The ABI-encoded parameters for the function
-     * @return operationId The computed ID
-     */
-    function getOperationId(
-        address target,
-        uint256 value,
-        string memory signature,
-        bytes memory callData
-    ) public pure returns (bytes32) {
-        return keccak256(abi.encode(target, value, signature, callData));
-    }
-
-    /**
-     * @notice Schedules an operation to be executed no sooner than (block.timestamp + delay).
-     * @param target    The contract to call
-     * @param value     The amount of ETH to send
-     * @param signature The function signature
-     * @param callData  The ABI-encoded parameters for the function
-     * @return operationId The unique ID of the scheduled operation
-     */
-    function schedule(
-        address target,
-        uint256 value,
-        string memory signature,
-        bytes memory callData
-    ) external onlyOwner returns (bytes32 operationId) {
-        require(target != address(0), "Timelock: invalid target");
-
-        operationId = getOperationId(target, value, signature, callData);
-        Operation storage op = operations[operationId];
-        require(op.target == address(0), "Timelock: operation already scheduled");
-
-        uint256 earliestExecTime = block.timestamp + delay;
-        op.target = target;
-        op.value = value;
-        op.signature = signature;
-        op.callData = callData;
-        op.earliestExecTime = earliestExecTime;
-        op.executed = false;
-        op.canceled = false;
-
-        emit OperationScheduled(operationId, target, value, signature, callData, earliestExecTime);
-    }
-
-    /**
-     * @notice Cancels a previously scheduled operation that has not been executed or canceled yet.
-     * @param operationId The unique ID of the operation to cancel
-     */
-    function cancel(bytes32 operationId) external onlyOwner {
-        Operation storage op = operations[operationId];
-        require(op.target != address(0), "Timelock: unknown operation");
-        require(!op.executed, "Timelock: operation already executed");
-        require(!op.canceled, "Timelock: operation already canceled");
-        op.canceled = true;
-        emit OperationCanceled(operationId);
-    }
-
-    /**
-     * @notice Executes a scheduled operation if the current time is within the allowed window.
-     * @param operationId The unique ID of the operation to execute
-     */
-    function execute(bytes32 operationId) external payable nonReentrant {
-        Operation storage op = operations[operationId];
-        require(op.target != address(0), "Timelock: unknown operation");
-        require(!op.executed, "Timelock: operation already executed");
-        require(!op.canceled, "Timelock: operation canceled");
-        require(block.timestamp >= op.earliestExecTime, "Timelock: too early");
-        require(
-            block.timestamp <= op.earliestExecTime + gracePeriod,
-            "Timelock: operation expired"
+        emit VaultOptionsUpdated(
+            vault,
+            gatingActive,
+            authorizedCaller,
+            enforcePriceConstraints,
+            minPriceAllowed,
+            maxPriceAllowed
         );
+    }
 
-        op.executed = true;
+    /**
+     * @notice Performs a rebalance on a vault’s Uniswap V3 position. 
+     *         Steps:
+     *         1) If gatingActive, require msg.sender == authorizedCaller
+     *         2) If enforcePriceConstraints, compare vault’s getUnderlyingPrice() to allowed range
+     *         3) Remove some or all liquidity from old range
+     *         4) Collect tokens to the vault
+     *         5) Optionally add liquidity to new range
+     *
+     * @param vault The vault implementing IVaultRebalance
+     * @param data  Encoded parameters:
+     *             (
+     *               int24 newTickLower,
+     *               int24 newTickUpper,
+     *               uint128 liquidityToRemove,
+     *               uint256 amount0MinRemove,
+     *               uint256 amount1MinRemove,
+     *               uint256 amount0DesiredAdd,
+     *               uint256 amount1DesiredAdd,
+     *               uint256 amount0MinAdd,
+     *               uint256 amount1MinAdd,
+     *               uint256 deadline
+     *             )
+     */
+    function rebalance(address vault, bytes calldata data) external {
+        VaultOptions memory opts = vaultOptions[vault];
 
-        bytes memory callData;
-        if (bytes(op.signature).length == 0) {
-            callData = op.callData;
-        } else {
-            callData = abi.encodePacked(bytes4(keccak256(bytes(op.signature))), op.callData);
+        if (opts.gatingActive) {
+            require(
+                msg.sender == opts.authorizedCaller,
+                "Rebalancer: not authorized to rebalance this vault"
+            );
         }
 
-        (bool success, bytes memory result) = op.target.call{value: op.value}(callData);
+        if (opts.enforcePriceConstraints) {
+            (uint256 poolPrice, ) = IVaultRebalance(vault).getUnderlyingPrice();
+            require(
+                poolPrice >= opts.minPriceAllowed && poolPrice <= opts.maxPriceAllowed,
+                "Rebalancer: vault price out of allowed range"
+            );
+        }
+
+        (
+            int24 newTickLower,
+            int24 newTickUpper,
+            uint128 liquidityToRemove,
+            uint256 amount0MinRemove,
+            uint256 amount1MinRemove,
+            uint256 amount0DesiredAdd,
+            uint256 amount1DesiredAdd,
+            uint256 amount0MinAdd,
+            uint256 amount1MinAdd,
+            uint256 deadline
+        ) = abi.decode(
+            data,
+            (int24, int24, uint128, uint256, uint256, uint256, uint256, uint256, uint256, uint256)
+        );
+
+        // Read vault’s position info
+        IVaultRebalance vaultInterface = IVaultRebalance(vault);
+        uint256 tokenId = vaultInterface.vaultPositionTokenId();
+        address posMgr = vaultInterface.positionManager();
+        require(posMgr != address(0), "Rebalancer: invalid positionMgr");
+
+        // Retrieve old range and liquidity
+        (int24 oldTickLower, int24 oldTickUpper, uint128 currentLiquidity) = _getOldRangeAndLiquidity(posMgr, tokenId);
+
+        require(currentLiquidity >= liquidityToRemove, "Rebalancer: insufficient liquidity to remove");
+
+        // Step A: remove liquidity
+        (uint256 amount0Removed, uint256 amount1Removed) = _removeLiquidity(
+            posMgr,
+            tokenId,
+            liquidityToRemove,
+            amount0MinRemove,
+            amount1MinRemove,
+            deadline
+        );
+
+        // Step B: collect to vault
+        (uint256 collect0, uint256 collect1) = _collectAll(posMgr, vault, tokenId);
+
+        // Step C: add new liquidity if specified
+        (uint128 newLiquidity, uint256 added0, uint256 added1) = (0, 0, 0);
+        if (amount0DesiredAdd > 0 || amount1DesiredAdd > 0) {
+            (newLiquidity, added0, added1) = _addLiquidity(
+                posMgr,
+                vault,
+                tokenId,
+                newTickLower,
+                newTickUpper,
+                amount0DesiredAdd,
+                amount1DesiredAdd,
+                amount0MinAdd,
+                amount1MinAdd,
+                deadline
+            );
+        }
+
+        emit RebalancePerformed(
+            vault,
+            tokenId,
+            oldTickLower,
+            oldTickUpper,
+            newTickLower,
+            newTickUpper,
+            amount0Removed,
+            amount1Removed,
+            added0,
+            added1
+        );
+    }
+
+    /**
+     * @dev Internal: retrieve oldTickLower, oldTickUpper, and currentLiquidity from positions(tokenId).
+     */
+    function _getOldRangeAndLiquidity(address posMgr, uint256 tokenId)
+        internal
+        view
+        returns (int24 oldTickLower, int24 oldTickUpper, uint128 currentLiquidity)
+    {
+        (bool success, bytes memory result) = posMgr.staticcall(
+            abi.encodeWithSelector(INonfungiblePositionManager.positions.selector, tokenId)
+        );
         require(success, _getRevertMsg(result));
 
-        emit OperationExecuted(operationId, op.target, op.value, op.signature, op.callData);
+        (
+            ,
+            ,
+            ,
+            ,
+            ,
+            oldTickLower,
+            oldTickUpper,
+            currentLiquidity,
+            ,
+            ,
+            ,
+        ) = abi.decode(
+            result,
+            (uint96, address, address, address, uint24, int24, int24, uint128, uint256, uint256, uint128, uint128)
+        );
     }
 
     /**
-     * @dev Ensures no reentrancy on execute calls. This is a standard approach
-     *      for timelocks or we can define a ReentrancyGuard approach inlined.
+     * @dev Internal: remove liquidity from the old range.
      */
-    modifier nonReentrant() {
-        require(_status != 2, "Timelock: reentrant call");
-        _status = 2;
-        _;
-        _status = 1;
+    function _removeLiquidity(
+        address posMgr,
+        uint256 tokenId,
+        uint128 liquidityToRemove,
+        uint256 amount0Min,
+        uint256 amount1Min,
+        uint256 deadline
+    ) internal returns (uint256 amount0, uint256 amount1) {
+        INonfungiblePositionManager.DecreaseLiquidityParams memory params =
+            INonfungiblePositionManager.DecreaseLiquidityParams({
+                tokenId: tokenId,
+                liquidity: liquidityToRemove,
+                amount0Min: amount0Min,
+                amount1Min: amount1Min,
+                deadline: deadline
+            });
+
+        (amount0, amount1) = INonfungiblePositionManager(posMgr).decreaseLiquidity(params);
     }
-    uint256 private _status = 1;
 
     /**
-     * @dev Helper function to decode a revert reason from a failed call.
+     * @dev Internal: collect all tokens/fees to the vault address.
+     */
+    function _collectAll(address posMgr, address vault, uint256 tokenId)
+        internal
+        returns (uint256 amount0, uint256 amount1)
+    {
+        INonfungiblePositionManager.CollectParams memory collectParams =
+            INonfungiblePositionManager.CollectParams({
+                tokenId: tokenId,
+                recipient: vault,
+                amount0Max: type(uint128).max,
+                amount1Max: type(uint128).max
+            });
+        (amount0, amount1) = INonfungiblePositionManager(posMgr).collect(collectParams);
+    }
+
+    /**
+     * @dev Internal: add liquidity to a new (or same) tick range. 
+     */
+    function _addLiquidity(
+        address posMgr,
+        address vault,
+        uint256 tokenId,
+        int24 newTickLower,
+        int24 newTickUpper,
+        uint256 amount0Desired,
+        uint256 amount1Desired,
+        uint256 amount0Min,
+        uint256 amount1Min,
+        uint256 deadline
+    ) internal returns (uint128 liquidity, uint256 used0, uint256 used1) {
+        INonfungiblePositionManager.IncreaseLiquidityParams memory params =
+            INonfungiblePositionManager.IncreaseLiquidityParams({
+                tokenId: tokenId,
+                amount0Desired: amount0Desired,
+                amount1Desired: amount1Desired,
+                amount0Min: amount0Min,
+                amount1Min: amount1Min,
+                tickLower: newTickLower,
+                tickUpper: newTickUpper,
+                deadline: deadline
+            });
+
+        (liquidity, used0, used1) = INonfungiblePositionManager(posMgr).increaseLiquidity(params);
+    }
+
+    /**
+     * @dev Helper to decode revert reasons from staticcall or call.
      */
     function _getRevertMsg(bytes memory _returnData) private pure returns (string memory) {
-        if (_returnData.length < 68) return "Timelock: call reverted without message";
+        if (_returnData.length < 68) return "Rebalancer: call reverted w/o msg";
         assembly {
             _returnData := add(_returnData, 0x04)
         }
         return abi.decode(_returnData, (string));
     }
-
-    /**
-     * @notice Checks if an operation is scheduled, canceled, or executed.
-     * @param operationId The ID to check
-     * @return scheduled True if operation exists
-     * @return canceled  True if operation is canceled
-     * @return executed  True if operation is executed
-     */
-    function getOperationStatus(bytes32 operationId)
-        external
-        view
-        returns (bool scheduled, bool canceled, bool executed)
-    {
-        Operation storage op = operations[operationId];
-        if (op.target == address(0)) {
-            return (false, false, false);
-        }
-        return (true, op.canceled, op.executed);
-    }
-
-    /**
-     * @notice Checks the earliest execution time for an operation.
-     * @param operationId The ID to check
-     * @return earliestExecTime The timestamp from which the operation can be executed
-     */
-    function getEarliestExecutionTime(bytes32 operationId) external view returns (uint256) {
-        Operation storage op = operations[operationId];
-        return op.earliestExecTime;
-    }
-
-    receive() external payable {}
 }

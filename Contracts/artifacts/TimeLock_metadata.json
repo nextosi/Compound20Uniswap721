@@ -1,0 +1,483 @@
+{
+	"compiler": {
+		"version": "0.8.28+commit.7893614a"
+	},
+	"language": "Solidity",
+	"output": {
+		"abi": [
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "initialOwner",
+						"type": "address"
+					},
+					{
+						"internalType": "uint256",
+						"name": "_delay",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "_gracePeriod",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "nonpayable",
+				"type": "constructor"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "owner",
+						"type": "address"
+					}
+				],
+				"name": "OwnableInvalidOwner",
+				"type": "error"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "account",
+						"type": "address"
+					}
+				],
+				"name": "OwnableUnauthorizedAccount",
+				"type": "error"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "previousOwner",
+						"type": "address"
+					},
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "newOwner",
+						"type": "address"
+					}
+				],
+				"name": "OwnershipTransferred",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "bytes32",
+						"name": "requestId",
+						"type": "bytes32"
+					}
+				],
+				"name": "UpgradeCanceled",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "bytes32",
+						"name": "requestId",
+						"type": "bytes32"
+					}
+				],
+				"name": "UpgradeExecuted",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "bytes32",
+						"name": "requestId",
+						"type": "bytes32"
+					},
+					{
+						"indexed": false,
+						"internalType": "address",
+						"name": "target",
+						"type": "address"
+					},
+					{
+						"indexed": false,
+						"internalType": "address",
+						"name": "implementation",
+						"type": "address"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "executeTime",
+						"type": "uint256"
+					}
+				],
+				"name": "UpgradeQueued",
+				"type": "event"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "bytes32",
+						"name": "requestId",
+						"type": "bytes32"
+					}
+				],
+				"name": "cancelUpgrade",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "delay",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "bytes32",
+						"name": "requestId",
+						"type": "bytes32"
+					}
+				],
+				"name": "executeUpgrade",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "target",
+						"type": "address"
+					},
+					{
+						"internalType": "address",
+						"name": "newImplementation",
+						"type": "address"
+					}
+				],
+				"name": "getRequestId",
+				"outputs": [
+					{
+						"internalType": "bytes32",
+						"name": "",
+						"type": "bytes32"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "gracePeriod",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "owner",
+				"outputs": [
+					{
+						"internalType": "address",
+						"name": "",
+						"type": "address"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "targetContract",
+						"type": "address"
+					},
+					{
+						"internalType": "address",
+						"name": "newImplementation",
+						"type": "address"
+					}
+				],
+				"name": "queueUpgrade",
+				"outputs": [
+					{
+						"internalType": "bytes32",
+						"name": "",
+						"type": "bytes32"
+					}
+				],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "renounceOwnership",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "bytes32",
+						"name": "",
+						"type": "bytes32"
+					}
+				],
+				"name": "requests",
+				"outputs": [
+					{
+						"internalType": "address",
+						"name": "targetContract",
+						"type": "address"
+					},
+					{
+						"internalType": "address",
+						"name": "newImplementation",
+						"type": "address"
+					},
+					{
+						"internalType": "uint256",
+						"name": "earliestExecuteTime",
+						"type": "uint256"
+					},
+					{
+						"internalType": "bool",
+						"name": "executed",
+						"type": "bool"
+					},
+					{
+						"internalType": "bool",
+						"name": "canceled",
+						"type": "bool"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "newDelay",
+						"type": "uint256"
+					}
+				],
+				"name": "setDelay",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "newGrace",
+						"type": "uint256"
+					}
+				],
+				"name": "setGracePeriod",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "newOwner",
+						"type": "address"
+					}
+				],
+				"name": "transferOwnership",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			}
+		],
+		"devdoc": {
+			"errors": {
+				"OwnableInvalidOwner(address)": [
+					{
+						"details": "The owner is not a valid owner account. (eg. `address(0)`)"
+					}
+				],
+				"OwnableUnauthorizedAccount(address)": [
+					{
+						"details": "The caller account is not authorized to perform an operation."
+					}
+				]
+			},
+			"events": {
+				"UpgradeCanceled(bytes32)": {
+					"details": "Emitted when an upgrade request is canceled."
+				},
+				"UpgradeExecuted(bytes32)": {
+					"details": "Emitted when an upgrade request is successfully executed."
+				},
+				"UpgradeQueued(bytes32,address,address,uint256)": {
+					"details": "Emitted when a new upgrade request is queued."
+				}
+			},
+			"kind": "dev",
+			"methods": {
+				"cancelUpgrade(bytes32)": {
+					"params": {
+						"requestId": "The ID of the request to cancel."
+					}
+				},
+				"constructor": {
+					"params": {
+						"_delay": "The mandatory wait time before execution.",
+						"_gracePeriod": "The time window after _delay during which the operation remains valid.",
+						"initialOwner": "The owner of this timelock (e.g. a DAO or admin)."
+					}
+				},
+				"executeUpgrade(bytes32)": {
+					"params": {
+						"requestId": "The ID of the request."
+					}
+				},
+				"getRequestId(address,address)": {
+					"details": "Creates an ID for an upgrade request based on the target contract, newImplementation,      and the current block timestamp (to differentiate repeated requests)."
+				},
+				"owner()": {
+					"details": "Returns the address of the current owner."
+				},
+				"queueUpgrade(address,address)": {
+					"params": {
+						"newImplementation": "The new logic contract address.",
+						"targetContract": "The proxy contract to upgrade."
+					},
+					"returns": {
+						"_0": "requestId        The unique ID of the scheduled operation."
+					}
+				},
+				"renounceOwnership()": {
+					"details": "Leaves the contract without owner. It will not be possible to call `onlyOwner` functions. Can only be called by the current owner. NOTE: Renouncing ownership will leave the contract without an owner, thereby disabling any functionality that is only available to the owner."
+				},
+				"setDelay(uint256)": {
+					"params": {
+						"newDelay": "The new mandatory wait time in seconds."
+					}
+				},
+				"setGracePeriod(uint256)": {
+					"params": {
+						"newGrace": "The new grace period in seconds."
+					}
+				},
+				"transferOwnership(address)": {
+					"details": "Transfers ownership of the contract to a new account (`newOwner`). Can only be called by the current owner."
+				}
+			},
+			"stateVariables": {
+				"delay": {
+					"details": "The minimum wait time between scheduling an operation and executing it."
+				},
+				"gracePeriod": {
+					"details": "After `earliestExecuteTime + gracePeriod` passes, the operation expires."
+				},
+				"requests": {
+					"details": "A mapping of requestId => UpgradeRequest data."
+				}
+			},
+			"title": "TimeLock",
+			"version": 1
+		},
+		"userdoc": {
+			"kind": "user",
+			"methods": {
+				"cancelUpgrade(bytes32)": {
+					"notice": "Cancels a previously queued upgrade request that has not been executed or canceled yet."
+				},
+				"constructor": {
+					"notice": "Constructor that initializes the contract with an owner,          a required delay, and a grace period."
+				},
+				"executeUpgrade(bytes32)": {
+					"notice": "Executes a queued upgrade if within the valid window [earliestExecuteTime, earliestExecuteTime+gracePeriod]."
+				},
+				"queueUpgrade(address,address)": {
+					"notice": "Schedules an upgrade of a UUPS proxy (or any other upgradable) after `delay`."
+				},
+				"setDelay(uint256)": {
+					"notice": "The owner can adjust the `delay` for future requests. Does not affect existing ones."
+				},
+				"setGracePeriod(uint256)": {
+					"notice": "The owner can adjust the `gracePeriod` for future requests. Does not affect existing ones."
+				}
+			},
+			"notice": "A general-purpose timelock contract designed for scheduling and executing         upgrades or arbitrary function calls after a set delay. Integrates with         an Ownable constructor that requires an owner address.         Key Features:         1) queueUpgrade(...) or queueCall(...) can schedule an operation.         2) Once the `delay` has passed (but before `delay + gracePeriod`),             anyone can execute the operation, provided it's not canceled or executed.         3) If the grace period expires, the operation cannot be executed (it’s expired).         4) The contract uses an owner-based approach for controlling the scheduling,             canceling, and execution of timelocked operations.",
+			"version": 1
+		}
+	},
+	"settings": {
+		"compilationTarget": {
+			"Contracts/Timelock.sol": "TimeLock"
+		},
+		"evmVersion": "cancun",
+		"libraries": {},
+		"metadata": {
+			"bytecodeHash": "ipfs"
+		},
+		"optimizer": {
+			"enabled": false,
+			"runs": 200
+		},
+		"remappings": []
+	},
+	"sources": {
+		"@openzeppelin/contracts/access/Ownable.sol": {
+			"keccak256": "0xff6d0bb2e285473e5311d9d3caacb525ae3538a80758c10649a4d61029b017bb",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://8ed324d3920bb545059d66ab97d43e43ee85fd3bd52e03e401f020afb0b120f6",
+				"dweb:/ipfs/QmfEckWLmZkDDcoWrkEvMWhms66xwTLff9DDhegYpvHo1a"
+			]
+		},
+		"@openzeppelin/contracts/utils/Context.sol": {
+			"keccak256": "0x493033a8d1b176a037b2cc6a04dad01a5c157722049bbecf632ca876224dd4b2",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://6a708e8a5bdb1011c2c381c9a5cfd8a9a956d7d0a9dc1bd8bcdaf52f76ef2f12",
+				"dweb:/ipfs/Qmax9WHBnVsZP46ZxEMNRQpLQnrdE4dK8LehML1Py8FowF"
+			]
+		},
+		"Contracts/Timelock.sol": {
+			"keccak256": "0xad8b5d398949660f05dfe2b45e92c415b39535e89cf14874b833a97054c3a30c",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://d819d2b01d8b92465a09a7235de7609a9d3b7da39f8d25a68e5120287e083d0e",
+				"dweb:/ipfs/QmeCDAmw6Tm9PVBdAYe7hwdXsT6t99u835S8SDfgQGQUmp"
+			]
+		}
+	},
+	"version": 1
+}

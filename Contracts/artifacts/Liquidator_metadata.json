@@ -1,0 +1,506 @@
+{
+	"compiler": {
+		"version": "0.8.28+commit.7893614a"
+	},
+	"language": "Solidity",
+	"output": {
+		"abi": [
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "initialOwner",
+						"type": "address"
+					},
+					{
+						"internalType": "uint256",
+						"name": "_minCollateralValue",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "_liquidationFeeBps",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "_maxLiquidationBps",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "nonpayable",
+				"type": "constructor"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "owner",
+						"type": "address"
+					}
+				],
+				"name": "OwnableInvalidOwner",
+				"type": "error"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "account",
+						"type": "address"
+					}
+				],
+				"name": "OwnableUnauthorizedAccount",
+				"type": "error"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "vault",
+						"type": "address"
+					},
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "liquidator",
+						"type": "address"
+					},
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "userLiquidated",
+						"type": "address"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "seizedShares",
+						"type": "uint256"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "feeShares",
+						"type": "uint256"
+					},
+					{
+						"indexed": false,
+						"internalType": "address",
+						"name": "recipient",
+						"type": "address"
+					}
+				],
+				"name": "LiquidationExecuted",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "oldFee",
+						"type": "uint256"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "newFee",
+						"type": "uint256"
+					}
+				],
+				"name": "LiquidationFeeBpsUpdated",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "oldMaxBps",
+						"type": "uint256"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "newMaxBps",
+						"type": "uint256"
+					}
+				],
+				"name": "MaxLiquidationBpsUpdated",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "oldValue",
+						"type": "uint256"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "newValue",
+						"type": "uint256"
+					}
+				],
+				"name": "MinCollateralValueUpdated",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "previousOwner",
+						"type": "address"
+					},
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "newOwner",
+						"type": "address"
+					}
+				],
+				"name": "OwnershipTransferred",
+				"type": "event"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "vault",
+						"type": "address"
+					},
+					{
+						"internalType": "address",
+						"name": "user",
+						"type": "address"
+					}
+				],
+				"name": "checkUnderCollateral",
+				"outputs": [
+					{
+						"internalType": "bool",
+						"name": "isUnderCollateral",
+						"type": "bool"
+					},
+					{
+						"internalType": "uint256",
+						"name": "userValue",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "vault",
+						"type": "address"
+					},
+					{
+						"internalType": "address",
+						"name": "user",
+						"type": "address"
+					},
+					{
+						"internalType": "uint256",
+						"name": "seizeAmount",
+						"type": "uint256"
+					}
+				],
+				"name": "liquidate",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "liquidationFeeBps",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "maxLiquidationBps",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "minCollateralValue",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "owner",
+				"outputs": [
+					{
+						"internalType": "address",
+						"name": "",
+						"type": "address"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "renounceOwnership",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "newFeeBps",
+						"type": "uint256"
+					}
+				],
+				"name": "setLiquidationFeeBps",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "newMaxBps",
+						"type": "uint256"
+					}
+				],
+				"name": "setMaxLiquidationBps",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "newValue",
+						"type": "uint256"
+					}
+				],
+				"name": "setMinCollateralValue",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "newOwner",
+						"type": "address"
+					}
+				],
+				"name": "transferOwnership",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			}
+		],
+		"devdoc": {
+			"errors": {
+				"OwnableInvalidOwner(address)": [
+					{
+						"details": "The owner is not a valid owner account. (eg. `address(0)`)"
+					}
+				],
+				"OwnableUnauthorizedAccount(address)": [
+					{
+						"details": "The caller account is not authorized to perform an operation."
+					}
+				]
+			},
+			"events": {
+				"LiquidationExecuted(address,address,address,uint256,uint256,address)": {
+					"details": "Emitted after a successful liquidation.",
+					"params": {
+						"feeShares": "The fee portion of shares, also seized and given to owner.",
+						"liquidator": "The caller who triggered the liquidation action.",
+						"recipient": "The address that receives the seized shares (the contract owner).",
+						"seizedShares": "The base amount of shares seized from the user.",
+						"userLiquidated": "The user whose shares were seized.",
+						"vault": "The vault being liquidated."
+					}
+				},
+				"LiquidationFeeBpsUpdated(uint256,uint256)": {
+					"details": "Emitted when the liquidation fee is updated."
+				},
+				"MaxLiquidationBpsUpdated(uint256,uint256)": {
+					"details": "Emitted when the maximum liquidation ratio is updated."
+				},
+				"MinCollateralValueUpdated(uint256,uint256)": {
+					"details": "Emitted when the minCollateralValue is updated."
+				}
+			},
+			"kind": "dev",
+			"methods": {
+				"checkUnderCollateral(address,address)": {
+					"details": "Checks if a user is undercollateralized by computing their share value       from the vault's price feed and comparing it to `minCollateralValue`.",
+					"params": {
+						"user": "The user to check.",
+						"vault": "The vault implementing IVaultLiquidation."
+					},
+					"returns": {
+						"isUnderCollateral": "True if user's share value < minCollateralValue.",
+						"userValue": "        The user's computed share value (in the feed's unit)."
+					}
+				},
+				"constructor": {
+					"params": {
+						"_liquidationFeeBps": "A fee in basis points added on top of `seizeAmount`.",
+						"_maxLiquidationBps": "The maximum fraction of user shares seizable in one call.",
+						"_minCollateralValue": "The minimum user share value required to avoid liquidation.",
+						"initialOwner": "The address that will own this Liquidator contract."
+					}
+				},
+				"liquidate(address,address,uint256)": {
+					"params": {
+						"seizeAmount": "The base number of shares to seize (excluding fee).",
+						"user": "The undercollateralized user to liquidate.",
+						"vault": "The vault address implementing IVaultLiquidation."
+					}
+				},
+				"owner()": {
+					"details": "Returns the address of the current owner."
+				},
+				"renounceOwnership()": {
+					"details": "Leaves the contract without owner. It will not be possible to call `onlyOwner` functions. Can only be called by the current owner. NOTE: Renouncing ownership will leave the contract without an owner, thereby disabling any functionality that is only available to the owner."
+				},
+				"setLiquidationFeeBps(uint256)": {
+					"params": {
+						"newFeeBps": "The new liquidation fee."
+					}
+				},
+				"setMaxLiquidationBps(uint256)": {
+					"params": {
+						"newMaxBps": "The new ratio in basis points."
+					}
+				},
+				"setMinCollateralValue(uint256)": {
+					"params": {
+						"newValue": "The new minCollateralValue."
+					}
+				},
+				"transferOwnership(address)": {
+					"details": "Transfers ownership of the contract to a new account (`newOwner`). Can only be called by the current owner."
+				}
+			},
+			"stateVariables": {
+				"liquidationFeeBps": {
+					"details": "A liquidation fee in basis points (e.g., 500 => 5%).       This is added on top of `seizeAmount` and also transferred       to the contract owner upon liquidation."
+				},
+				"maxLiquidationBps": {
+					"details": "The maximum proportion of a user's total shares that can be seized       in one liquidation call, in basis points (e.g., 5000 => 50%)."
+				},
+				"minCollateralValue": {
+					"details": "The minimum value (in the same unit as the vault's price feed)       a user must maintain. If their share value < minCollateralValue,       they can be liquidated."
+				}
+			},
+			"title": "Liquidator",
+			"version": 1
+		},
+		"userdoc": {
+			"kind": "user",
+			"methods": {
+				"constructor": {
+					"notice": "Constructor calls the Ownable base constructor with `initialOwner`          and initializes the liquidation parameters."
+				},
+				"liquidate(address,address,uint256)": {
+					"notice": "Liquidates a user if they are undercollateralized by seizing a specified          number of shares (plus a fee) and transferring them to this contract's owner."
+				},
+				"setLiquidationFeeBps(uint256)": {
+					"notice": "Updates the liquidation fee in basis points (onlyOwner)."
+				},
+				"setMaxLiquidationBps(uint256)": {
+					"notice": "Updates the max fraction of user shares that can be seized in one call (onlyOwner)."
+				},
+				"setMinCollateralValue(uint256)": {
+					"notice": "Updates the minimum collateral value (onlyOwner)."
+				}
+			},
+			"notice": "A contract that can forcibly seize user shares from an undercollateralized position         in a vault. The seized shares are transferred to this contract's owner (the deployer),         who can then decide how to handle them (e.g., distribute to a hired liquidator,         return partially to a pool, penalize the user, etc.).         Key parameters:         - minCollateralValue: The required value below which a user is undercollateralized.         - liquidationFeeBps: A fee in basis points added on top of the seizeAmount,            also sent to the owner (deployer).         - maxLiquidationBps: The maximum fraction (in BPS) of a user's shares            that can be seized in one call.         This contract calls `seizeShares(user, totalSeize, owner())` on the vault,          transferring forcibly removed shares to the contract's owner.         The constructor requires an `initialOwner` address for `Ownable`,         fixing the \"No arguments passed to base constructor\" error.",
+			"version": 1
+		}
+	},
+	"settings": {
+		"compilationTarget": {
+			"Contracts/Liquidator.sol": "Liquidator"
+		},
+		"evmVersion": "constantinople",
+		"libraries": {},
+		"metadata": {
+			"bytecodeHash": "ipfs"
+		},
+		"optimizer": {
+			"enabled": true,
+			"runs": 200
+		},
+		"remappings": []
+	},
+	"sources": {
+		"@openzeppelin/contracts/access/Ownable.sol": {
+			"keccak256": "0xff6d0bb2e285473e5311d9d3caacb525ae3538a80758c10649a4d61029b017bb",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://8ed324d3920bb545059d66ab97d43e43ee85fd3bd52e03e401f020afb0b120f6",
+				"dweb:/ipfs/QmfEckWLmZkDDcoWrkEvMWhms66xwTLff9DDhegYpvHo1a"
+			]
+		},
+		"@openzeppelin/contracts/utils/Context.sol": {
+			"keccak256": "0x493033a8d1b176a037b2cc6a04dad01a5c157722049bbecf632ca876224dd4b2",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://6a708e8a5bdb1011c2c381c9a5cfd8a9a956d7d0a9dc1bd8bcdaf52f76ef2f12",
+				"dweb:/ipfs/Qmax9WHBnVsZP46ZxEMNRQpLQnrdE4dK8LehML1Py8FowF"
+			]
+		},
+		"Contracts/Liquidator.sol": {
+			"keccak256": "0xe29a5341dbc1bc7755491023b60d6ede80b0f4193428392ff891d78cffbb0c64",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://1baf3e4c48549be3d50698ec7d54e0b818dee7ed5890f56571acf502573cf11d",
+				"dweb:/ipfs/QmdfBG4QECyeJxd3YJq4PgyK5EVUKz3oZFTL38tcLVDKaS"
+			]
+		}
+	},
+	"version": 1
+}
