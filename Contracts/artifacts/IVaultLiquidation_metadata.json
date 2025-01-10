@@ -99,7 +99,7 @@
 		"compilationTarget": {
 			"Contracts/Liquidator.sol": "IVaultLiquidation"
 		},
-		"evmVersion": "constantinople",
+		"evmVersion": "shanghai",
 		"libraries": {},
 		"metadata": {
 			"bytecodeHash": "ipfs"
@@ -128,11 +128,11 @@
 			]
 		},
 		"Contracts/Liquidator.sol": {
-			"keccak256": "0xe29a5341dbc1bc7755491023b60d6ede80b0f4193428392ff891d78cffbb0c64",
+			"keccak256": "0x15b27d2b35ee2574fe030e9f418bbffd83dc6d089b8784809d459fe0270fd787",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://1baf3e4c48549be3d50698ec7d54e0b818dee7ed5890f56571acf502573cf11d",
-				"dweb:/ipfs/QmdfBG4QECyeJxd3YJq4PgyK5EVUKz3oZFTL38tcLVDKaS"
+				"bzz-raw://6df392bbca898498ddc5c395f004f3ac9c0badfeb31f855cd3136024229d449d",
+				"dweb:/ipfs/Qma4GARQcHVFRaQYVVpAfUN6ej9F4w4o3TSsutDHfn2kYL"
 			]
 		}
 	},

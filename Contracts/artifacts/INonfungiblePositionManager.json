@@ -49,10 +49,172 @@
 		},
 		"gasEstimates": null,
 		"methodIdentifiers": {
-			"positions(uint256)": "99fbab88"
+			"collect((uint256,address,uint128,uint128))": "fc6f7865",
+			"decreaseLiquidity((uint256,uint128,uint256,uint256,uint256))": "0c49ccbe",
+			"increaseLiquidity((uint256,uint256,uint256,uint256,uint256,uint256))": "219f5d17",
+			"positions(uint256)": "99fbab88",
+			"safeTransferFrom(address,address,uint256)": "42842e0e"
 		}
 	},
 	"abi": [
+		{
+			"inputs": [
+				{
+					"components": [
+						{
+							"internalType": "uint256",
+							"name": "tokenId",
+							"type": "uint256"
+						},
+						{
+							"internalType": "address",
+							"name": "recipient",
+							"type": "address"
+						},
+						{
+							"internalType": "uint128",
+							"name": "amount0Max",
+							"type": "uint128"
+						},
+						{
+							"internalType": "uint128",
+							"name": "amount1Max",
+							"type": "uint128"
+						}
+					],
+					"internalType": "struct INonfungiblePositionManager.CollectParams",
+					"name": "params",
+					"type": "tuple"
+				}
+			],
+			"name": "collect",
+			"outputs": [
+				{
+					"internalType": "uint256",
+					"name": "amount0",
+					"type": "uint256"
+				},
+				{
+					"internalType": "uint256",
+					"name": "amount1",
+					"type": "uint256"
+				}
+			],
+			"stateMutability": "nonpayable",
+			"type": "function"
+		},
+		{
+			"inputs": [
+				{
+					"components": [
+						{
+							"internalType": "uint256",
+							"name": "tokenId",
+							"type": "uint256"
+						},
+						{
+							"internalType": "uint128",
+							"name": "liquidity",
+							"type": "uint128"
+						},
+						{
+							"internalType": "uint256",
+							"name": "amount0Min",
+							"type": "uint256"
+						},
+						{
+							"internalType": "uint256",
+							"name": "amount1Min",
+							"type": "uint256"
+						},
+						{
+							"internalType": "uint256",
+							"name": "deadline",
+							"type": "uint256"
+						}
+					],
+					"internalType": "struct INonfungiblePositionManager.DecreaseLiquidityParams",
+					"name": "params",
+					"type": "tuple"
+				}
+			],
+			"name": "decreaseLiquidity",
+			"outputs": [
+				{
+					"internalType": "uint256",
+					"name": "amount0",
+					"type": "uint256"
+				},
+				{
+					"internalType": "uint256",
+					"name": "amount1",
+					"type": "uint256"
+				}
+			],
+			"stateMutability": "nonpayable",
+			"type": "function"
+		},
+		{
+			"inputs": [
+				{
+					"components": [
+						{
+							"internalType": "uint256",
+							"name": "tokenId",
+							"type": "uint256"
+						},
+						{
+							"internalType": "uint256",
+							"name": "amount0Desired",
+							"type": "uint256"
+						},
+						{
+							"internalType": "uint256",
+							"name": "amount1Desired",
+							"type": "uint256"
+						},
+						{
+							"internalType": "uint256",
+							"name": "amount0Min",
+							"type": "uint256"
+						},
+						{
+							"internalType": "uint256",
+							"name": "amount1Min",
+							"type": "uint256"
+						},
+						{
+							"internalType": "uint256",
+							"name": "deadline",
+							"type": "uint256"
+						}
+					],
+					"internalType": "struct INonfungiblePositionManager.IncreaseLiquidityParams",
+					"name": "params",
+					"type": "tuple"
+				}
+			],
+			"name": "increaseLiquidity",
+			"outputs": [
+				{
+					"internalType": "uint128",
+					"name": "liquidity",
+					"type": "uint128"
+				},
+				{
+					"internalType": "uint256",
+					"name": "amount0",
+					"type": "uint256"
+				},
+				{
+					"internalType": "uint256",
+					"name": "amount1",
+					"type": "uint256"
+				}
+			],
+			"stateMutability": "nonpayable",
+			"type": "function"
+		},
 		{
 			"inputs": [
 				{
@@ -125,6 +287,29 @@
 				}
 			],
 			"stateMutability": "view",
+			"type": "function"
+		},
+		{
+			"inputs": [
+				{
+					"internalType": "address",
+					"name": "from",
+					"type": "address"
+				},
+				{
+					"internalType": "address",
+					"name": "to",
+					"type": "address"
+				},
+				{
+					"internalType": "uint256",
+					"name": "tokenId",
+					"type": "uint256"
+				}
+			],
+			"name": "safeTransferFrom",
+			"outputs": [],
+			"stateMutability": "nonpayable",
 			"type": "function"
 		}
 	]

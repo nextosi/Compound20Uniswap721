@@ -5,13 +5,10 @@ pragma solidity ^0.8.19;
  * @title OracleManager
  * @notice Manages aggregator references (Chainlink) for normal tokens,
  *         plus specialized logic for Uniswap V3 vault tokens. 
- *         Aggressively refactored to avoid "Stack too deep" errors by:
- *           1) Using helper structs.
- *           2) Splitting logic into multiple smaller functions.
  */
 
 // ---------------------------------------------------------------------
-// External GitHub Imports
+// External GitHub Imports for Testnets
 // ---------------------------------------------------------------------
 
 // 1) Chainlink aggregator interface
@@ -28,7 +25,7 @@ import "https://github.com/Uniswap/v3-core/blob/0.8/contracts/libraries/TickMath
 import "https://github.com/Uniswap/v3-periphery/blob/0.8/contracts/libraries/LiquidityAmounts.sol";
 
 // ---------------------------------------------------------------------
-// Minimal Interfaces
+// Minimal Interfaces for TestNets
 // ---------------------------------------------------------------------
 
 interface IVaultToken {
@@ -188,7 +185,7 @@ contract OracleManager is Ownable {
     }
 
     /**
-     * @notice Get the current price for a token or vault token in aggregator decimals (commonly 1e8).
+     * @notice Get the current price for a token or vault token in aggregator decimals (1e8).
      */
     function getPrice(address token) external view returns (uint256 price, uint8 decimals) {
         OracleData memory cfg = oracleConfigs[token];

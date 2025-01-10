@@ -70,7 +70,7 @@
 		"compilationTarget": {
 			"Contracts/VaultFactoryImplementation.sol": "IVaultImplementation"
 		},
-		"evmVersion": "constantinople",
+		"evmVersion": "shanghai",
 		"libraries": {},
 		"metadata": {
 			"bytecodeHash": "ipfs"

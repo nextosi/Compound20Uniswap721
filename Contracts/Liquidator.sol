@@ -39,9 +39,6 @@ interface IVaultLiquidation {
  *
  *         This contract calls `seizeShares(user, totalSeize, owner())` on the vault, 
  *         transferring forcibly removed shares to the contract's owner.
- *
- *         The constructor requires an `initialOwner` address for `Ownable`,
- *         fixing the "No arguments passed to base constructor" error.
  */
 contract Liquidator is Ownable {
     /**
@@ -212,7 +209,7 @@ contract Liquidator is Ownable {
         require(userShares >= totalSeize, "Liquidator: totalSeize > userShares");
 
         // Forcibly remove shares from the user and assign them to this contract's owner 
-        // so the owner can decide how to handle them (reward a third-party, penalize user, etc.).
+        // the owner can decide how to handle them (reward a third-party, penalize user, lock to an address etc.).
         v.seizeShares(user, totalSeize, owner());
 
         emit LiquidationExecuted(vault, msg.sender, user, seizeAmount, feeShares, owner());

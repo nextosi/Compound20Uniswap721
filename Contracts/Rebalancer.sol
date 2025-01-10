@@ -5,24 +5,18 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol";
 import { OracleManager as OracleMgr } from "./OracleManager.sol";
 
-/**
- * @dev Minimal interface for a Vault that the Rebalancer interacts with.
- *      Extended to have an optional method for auto-compounding (minting shares).
- */
 interface IMultiNftVaultRebalance {
-    // Existing:
+
     function vaultPositionTokenId() external view returns (uint256); 
-        // or if multiple NFTs, a function to find a specific tokenId
+    
 
     function positionManager() external view returns (address);
 
     function getUnderlyingPrice() external view returns (uint256 price, uint8 decimals);
 
-    // Optionally if your vault supports direct share minting by rebalancer:
+ 
     function rebalancerMintShares(uint256 extraValue, address to) external;
 
-    // Possibly a function to deposit any extra tokens or handle partial add-liquidity
-    // ...
 }
 
 /**
@@ -117,9 +111,7 @@ contract Rebalancer is Ownable {
 
         IMultiNftVaultRebalance vaultInterface = IMultiNftVaultRebalance(vault);
 
-        // If your vault is multi-NFT, you might pass a tokenId in `args` or do something else:
         uint256 tokenId = vaultInterface.vaultPositionTokenId(); 
-            // Or read from the data if you store multiple NFTs.
 
         // step 1: optional price checks
         _checkPriceConstraints(vaultInterface);
@@ -156,7 +148,7 @@ contract Rebalancer is Ownable {
         if (doAuto) {
             // If your vault supports a method for the rebalancer to call 
             // e.g. `rebalancerMintShares(...)` to handle any extra tokens or 
-            // deposit them as an auto-compound. We might pass in `args.extraValueForCompounding`.
+            // deposit them as an auto-compound. 
             // This logic is up to you. Example:
             if (args.extraValueForCompounding > 0) {
                 // calls the vault’s method to mint new shares
@@ -167,7 +159,7 @@ contract Rebalancer is Ownable {
                 minted = args.extraValueForCompounding; // or the actual minted share count
             }
             // If you want the rebalancer to also add the newly collected fees into the vault’s 
-            // deposit function, you could do that here as well.
+            
         }
 
         emit RebalancePerformed(
