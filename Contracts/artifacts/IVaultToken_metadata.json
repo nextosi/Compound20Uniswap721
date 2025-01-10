@@ -73,7 +73,7 @@
 		"compilationTarget": {
 			"Contracts/OracleManager.sol": "IVaultToken"
 		},
-		"evmVersion": "constantinople",
+		"evmVersion": "shanghai",
 		"libraries": {},
 		"metadata": {
 			"bytecodeHash": "ipfs"
@@ -102,11 +102,11 @@
 			]
 		},
 		"Contracts/OracleManager.sol": {
-			"keccak256": "0x63f95a9c0f4be1b0ee3ff7836f35927c36d6669e074ee4494b4249daa72ba7b5",
+			"keccak256": "0x48e00f69322cf60115f1edb855b6e73b368d66e8ccf39586ec71da6b7bcc1af0",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://51d91fb484185fa58a5f1b08965e6d985e2a727502e058d8e5cc961179e23baa",
-				"dweb:/ipfs/QmY2rGRvEQba55FHWL8kKLSGG25jZopdajD3yYVuMCPyGW"
+				"bzz-raw://15a1f2657985f342035eeefa95d6aabe4e65a94a0e96edfbbfe1b3757807fa03",
+				"dweb:/ipfs/QmYTyotgvyB2cfPvixL9Y2LPQKfFy8ap3o2h4KExfs7Y4x"
 			]
 		},
 		"https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v4.8.3/contracts/access/Ownable.sol": {
@@ -131,14 +131,6 @@
 			"urls": [
 				"bzz-raw://6df0ddf21ce9f58271bdfaa85cde98b200ef242a05a3f85c2bc10a8294800a92",
 				"dweb:/ipfs/QmRK2Y5Yc6BK7tGKkgsgn3aJEQGi5aakeSPZvS65PV8Xp3"
-			]
-		},
-		"https://github.com/Uniswap/v3-core/blob/0.8/contracts/libraries/TickMath.sol": {
-			"keccak256": "0x5c57de03a91cc2ec8939865dbbcb0197bb6c353b711075eefd8e0fca5e102129",
-			"license": "GPL-2.0-or-later",
-			"urls": [
-				"bzz-raw://1e994c24fd891ef8a3f5dbf5eba42b34feaf05e0376a29f91322faa18054449c",
-				"dweb:/ipfs/QmNdUJGUQxd1dPkMbnA5f5UNqakxRkQE5r7bTZJAuHeapS"
 			]
 		},
 		"https://github.com/Uniswap/v3-periphery/blob/0.8/contracts/libraries/LiquidityAmounts.sol": {

@@ -4,30 +4,76 @@ pragma solidity ^0.8.19;
 /**
  * @title OracleManager
  * @notice Manages aggregator references (Chainlink) for normal tokens,
- *         plus specialized logic for Uniswap V3 vault tokens. 
+ *         plus specialized logic for Uniswap V3 vault tokens.
  */
 
-// ---------------------------------------------------------------------
-// External GitHub Imports for Testnets
-// ---------------------------------------------------------------------
-
-// 1) Chainlink aggregator interface
+/* ---------------------------------------------------------------------
+ * 1) Chainlink aggregator interface for testnet
+ * --------------------------------------------------------------------- */
 import "https://github.com/smartcontractkit/chainlink/blob/v1.6.0/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 
-// 2) OpenZeppelin v4.8.3
+/* ---------------------------------------------------------------------
+ * 2) OpenZeppelin v4.8.3
+ * --------------------------------------------------------------------- */
 import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v4.8.3/contracts/access/Ownable.sol";
 import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v4.8.3/contracts/utils/Address.sol";
 
-// 3) Uniswap v3-core (0.8) for TickMath
-import "https://github.com/Uniswap/v3-core/blob/0.8/contracts/libraries/TickMath.sol";
-
-// 4) Uniswap v3-periphery (0.8) for LiquidityAmounts
+/* ---------------------------------------------------------------------
+ * 3) Uniswap v3-periphery (0.8) for LiquidityAmounts
+ * --------------------------------------------------------------------- */
 import "https://github.com/Uniswap/v3-periphery/blob/0.8/contracts/libraries/LiquidityAmounts.sol";
 
-// ---------------------------------------------------------------------
-// Minimal Interfaces for TestNets
-// ---------------------------------------------------------------------
+/* ---------------------------------------------------------------------
+ * Local TickMathLocal for 0.8.x
+ * ---------------------------------------------------------------------
+ */
+library TickMathLocal {
+    int24 internal constant MIN_TICK = -887272;
+    int24 internal constant MAX_TICK =  887272;
 
+    function getSqrtRatioAtTick(int24 tick) internal pure returns (uint160 sqrtPriceX96) {
+        require(tick >= MIN_TICK && tick <= MAX_TICK, "Tick out of range");
+
+        uint256 absTick = (tick < 0) 
+            ? uint256(uint24(uint24(-tick))) 
+            : uint256(uint24(uint24(tick)));
+
+        uint256 ratio = 0x100000000000000000000000000000000; // 1 << 128
+
+        if (absTick & 0x1     != 0) ratio = (ratio * 0xfffcb933bd6fad37aa2d162d1a594001) >> 128;
+        if (absTick & 0x2     != 0) ratio = (ratio * 0xfff97272373d413259a46990580e213a) >> 128;
+        if (absTick & 0x4     != 0) ratio = (ratio * 0xfff2e50f5f656932ef12357cf3c7fdcc) >> 128;
+        if (absTick & 0x8     != 0) ratio = (ratio * 0xffe5caca7e10e4e61c3624eaa0941cd0) >> 128;
+        if (absTick & 0x10    != 0) ratio = (ratio * 0xffcb9843d60f6159c9db58835c926644) >> 128;
+        if (absTick & 0x20    != 0) ratio = (ratio * 0xff973b41fa98c081472e6896dfb254c0) >> 128;
+        if (absTick & 0x40    != 0) ratio = (ratio * 0xff2ea16466c96a3843ec78b326b52861) >> 128;
+        if (absTick & 0x80    != 0) ratio = (ratio * 0xfe5dee046a99a2a811c461f1969c3053) >> 128;
+        if (absTick & 0x100   != 0) ratio = (ratio * 0xfcbe86c7900a88aedcffc83b479aa3a4) >> 128;
+        if (absTick & 0x200   != 0) ratio = (ratio * 0xf987a7253ac413176f2b074cf7815e54) >> 128;
+        if (absTick & 0x400   != 0) ratio = (ratio * 0xf3392b0822b70005940c7a398e4b70f3) >> 128;
+        if (absTick & 0x800   != 0) ratio = (ratio * 0xe7159475a2c29b7443b29c7fa6e889d9) >> 128;
+        if (absTick & 0x1000  != 0) ratio = (ratio * 0xd097f3bdfd2022b8845ad8f792aa5825) >> 128;
+        if (absTick & 0x2000  != 0) ratio = (ratio * 0xa9f746462d870fdf8a65dc1f90e061e5) >> 128;
+        if (absTick & 0x4000  != 0) ratio = (ratio * 0x70d869a156d2a1f6a7a2e3fadacb4c9b) >> 128;
+        if (absTick & 0x8000  != 0) ratio = (ratio * 0x31be135f97d08fd981231505542fcfa6) >> 128;
+        if (absTick & 0x10000 != 0) ratio = (ratio * 0x9aa508b5b7a84e1c677de54f3e99bc9) >> 128;
+        if (absTick & 0x20000 != 0) ratio = (ratio * 0x5d6af8dedb81196699c329225ee604) >> 128;
+        if (absTick & 0x40000 != 0) ratio = (ratio * 0x2216e584f5fa1ea926041bedfe98) >> 128;
+        if (absTick & 0x80000 != 0) ratio = (ratio * 0x48a170391f7dc42444e8fa2) >> 128;
+
+        if (tick > 0) {
+            ratio = type(uint256).max / ratio;
+        }
+
+        uint256 shifted = ratio >> 32;
+        require(shifted <= type(uint160).max, "Price overflow");
+        sqrtPriceX96 = uint160(shifted);
+    }
+}
+
+/* ---------------------------------------------------------------------
+ * Minimal Interfaces for Vault & NFPM & Pool
+ * --------------------------------------------------------------------- */
 interface IVaultToken {
     function totalSupply() external view returns (uint256);
     function vaultTokenId() external view returns (uint256);
@@ -70,21 +116,18 @@ interface IUniswapV3Pool {
         );
 }
 
-// ---------------------------------------------------------------------
-// OracleManager
-// ---------------------------------------------------------------------
-
+/* ---------------------------------------------------------------------
+ * OracleManager Implementation
+ * --------------------------------------------------------------------- */
 contract OracleManager is Ownable {
-    /// @dev config for normal tokens or direct pool addresses
     struct OracleData {
-        address primaryAggregator;   
-        address fallbackAggregator;  
-        bool useFallbackIfError;     
-        uint8 decimalsOverride;      
-        bool isVaultToken;           
+        address primaryAggregator;
+        address fallbackAggregator;
+        bool useFallbackIfError;
+        uint8 decimalsOverride;
+        bool isVaultToken;
     }
 
-    /// @dev For vault tokens, aggregator references for token0/token1
     struct VaultUnderlyingFeeds {
         address token0Aggregator;
         address token1Aggregator;
@@ -93,10 +136,7 @@ contract OracleManager is Ownable {
         bool exists;
     }
 
-    /// token -> OracleData
     mapping(address => OracleData) public oracleConfigs;
-
-    /// vaultToken -> VaultUnderlyingFeeds
     mapping(address => VaultUnderlyingFeeds) public vaultFeeds;
 
     event OracleConfigUpdated(
@@ -121,9 +161,6 @@ contract OracleManager is Ownable {
         _transferOwnership(initialOwner);
     }
 
-    /**
-     * @notice Sets or updates an oracle config for a given token or vault.
-     */
     function setOracleConfig(
         address token,
         address primaryAggregator,
@@ -155,9 +192,6 @@ contract OracleManager is Ownable {
         );
     }
 
-    /**
-     * @notice Sets aggregator references for a vault token’s underlying token0, token1
-     */
     function setVaultUnderlyingFeeds(
         address vaultToken,
         address token0Agg,
@@ -184,12 +218,9 @@ contract OracleManager is Ownable {
         );
     }
 
-    /**
-     * @notice Get the current price for a token or vault token in aggregator decimals (1e8).
-     */
     function getPrice(address token) external view returns (uint256 price, uint8 decimals) {
         OracleData memory cfg = oracleConfigs[token];
-        require(cfg.primaryAggregator != address(0) || cfg.isVaultToken, "OracleManager: no aggregator or vault logic");
+        require(cfg.primaryAggregator != address(0) || cfg.isVaultToken, "OracleManager: no aggregator/vault logic");
 
         if (!cfg.isVaultToken) {
             (price, decimals) = _getPriceFromConfig(cfg);
@@ -201,7 +232,7 @@ contract OracleManager is Ownable {
     }
 
     // ---------------------------------------------------------------------
-    // Internal Logic
+    // Internal
     // ---------------------------------------------------------------------
 
     function _getPriceFromConfig(OracleData memory cfg)
@@ -220,9 +251,6 @@ contract OracleManager is Ownable {
         return (p, d);
     }
 
-    /**
-     * @dev aggregator references for a vault's token0/token1
-     */
     struct AggregatorPair {
         address agg0;
         address agg1;
@@ -230,9 +258,6 @@ contract OracleManager is Ownable {
         uint8 dec1;
     }
 
-    /**
-     * @dev position data from NFPM
-     */
     struct PositionResult {
         address token0;
         address token1;
@@ -248,16 +273,11 @@ contract OracleManager is Ownable {
         view
         returns (uint256 price, uint8 decimals)
     {
-        // fetch basic vault info
         (uint256 totalShares, uint256 tokenId, address posMgr) = _fetchVaultInfo(vaultToken);
 
-        // fetch position data
         PositionResult memory pos = _fetchPositionData(posMgr, tokenId);
 
-        // read the current sqrtPrice
-        (uint160 sqrtPriceX96, ) = _getPoolSqrtAndTick(IVaultToken(vaultToken).v3Pool());
-
-        // compute active amounts
+        (uint160 sqrtPriceX96, int24 tick) = _getPoolSqrtAndTick(IVaultToken(vaultToken).v3Pool());
         (uint256 amtActive0, uint256 amtActive1) = _computeLiquidityAmounts(
             sqrtPriceX96,
             pos.tickLower,
@@ -265,11 +285,9 @@ contract OracleManager is Ownable {
             pos.liquidity
         );
 
-        // sum active + owed
         uint256 amt0 = amtActive0 + pos.owed0;
         uint256 amt1 = amtActive1 + pos.owed1;
 
-        // aggregator references
         AggregatorPair memory ap = AggregatorPair({
             agg0: vf.token0Aggregator,
             agg1: vf.token1Aggregator,
@@ -277,7 +295,6 @@ contract OracleManager is Ownable {
             dec1: vf.token1Decimals
         });
 
-        // aggregator-based totalValue
         uint256 totalValue = _convertVaultTokensToValue(amt0, amt1, ap);
 
         price = totalValue / (totalShares == 0 ? 1 : totalShares);
@@ -292,10 +309,8 @@ contract OracleManager is Ownable {
         IVaultToken v = IVaultToken(vaultToken);
         totalShares = v.totalSupply();
         require(totalShares > 0, "OracleManager: vault totalSupply=0");
-
         tokenId = v.vaultTokenId();
         require(tokenId != 0, "OracleManager: no NFT in vault");
-
         posMgr = v.positionManager();
         require(posMgr != address(0), "OracleManager: invalid positionMgr");
     }
@@ -329,16 +344,6 @@ contract OracleManager is Ownable {
         );
     }
 
-    function _convertVaultTokensToValue(
-        uint256 amt0,
-        uint256 amt1,
-        AggregatorPair memory ap
-    ) internal view returns (uint256) {
-        uint256 val0 = _convertToAggregatorValue(amt0, ap.agg0, ap.dec0);
-        uint256 val1 = _convertToAggregatorValue(amt1, ap.agg1, ap.dec1);
-        return val0 + val1;
-    }
-
     function _getPoolSqrtAndTick(address poolAddr) internal view returns (uint160 sqrtPriceX96, int24 tick) {
         require(poolAddr != address(0), "OracleManager: invalid pool");
         (bool success, bytes memory data) = poolAddr.staticcall(
@@ -357,14 +362,25 @@ contract OracleManager is Ownable {
         if (liquidity == 0) {
             return (0, 0);
         }
-        uint160 sqrtLower = TickMath.getSqrtRatioAtTick(tickLower);
-        uint160 sqrtUpper = TickMath.getSqrtRatioAtTick(tickUpper);
+        uint160 sqrtLower = TickMathLocal.getSqrtRatioAtTick(tickLower);
+        uint160 sqrtUpper = TickMathLocal.getSqrtRatioAtTick(tickUpper);
+
         (amt0, amt1) = LiquidityAmounts.getAmountsForLiquidity(
             sqrtPriceX96,
             sqrtLower,
             sqrtUpper,
             liquidity
         );
+    }
+
+    function _convertVaultTokensToValue(
+        uint256 amt0,
+        uint256 amt1,
+        AggregatorPair memory ap
+    ) internal view returns (uint256) {
+        uint256 val0 = _convertToAggregatorValue(amt0, ap.agg0, ap.dec0);
+        uint256 val1 = _convertToAggregatorValue(amt1, ap.agg1, ap.dec1);
+        return val0 + val1;
     }
 
     function _convertToAggregatorValue(
@@ -377,7 +393,6 @@ contract OracleManager is Ownable {
         }
         (bool ok, uint256 p, uint8 d) = _tryGetChainlinkPrice(aggregatorAddr, decimalsOvr);
         require(ok, "OracleManager: aggregator fail in _convertToAggregatorValue");
-        // unify to 1e8
         return (amt * p) / (10 ** d);
     }
 
