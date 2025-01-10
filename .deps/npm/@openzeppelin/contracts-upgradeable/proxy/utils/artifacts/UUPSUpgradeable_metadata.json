@@ -216,7 +216,7 @@
 		"compilationTarget": {
 			".deps/npm/@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol": "UUPSUpgradeable"
 		},
-		"evmVersion": "cancun",
+		"evmVersion": "constantinople",
 		"libraries": {},
 		"metadata": {
 			"bytecodeHash": "ipfs"

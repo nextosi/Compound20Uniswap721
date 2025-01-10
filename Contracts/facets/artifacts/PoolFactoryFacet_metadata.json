@@ -1,0 +1,211 @@
+{
+	"compiler": {
+		"version": "0.8.28+commit.7893614a"
+	},
+	"language": "Solidity",
+	"output": {
+		"abi": [
+			{
+				"inputs": [],
+				"name": "FailedDeployment",
+				"type": "error"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "balance",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "needed",
+						"type": "uint256"
+					}
+				],
+				"name": "InsufficientBalance",
+				"type": "error"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "string",
+						"name": "step",
+						"type": "string"
+					},
+					{
+						"indexed": false,
+						"internalType": "string",
+						"name": "info",
+						"type": "string"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "amount",
+						"type": "uint256"
+					}
+				],
+				"name": "PoolCreateDebug",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "poolAddress",
+						"type": "address"
+					},
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "creator",
+						"type": "address"
+					}
+				],
+				"name": "PoolCreated",
+				"type": "event"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "implementation",
+						"type": "address"
+					},
+					{
+						"internalType": "bytes",
+						"name": "initData",
+						"type": "bytes"
+					}
+				],
+				"name": "createPool",
+				"outputs": [
+					{
+						"internalType": "address",
+						"name": "clone",
+						"type": "address"
+					}
+				],
+				"stateMutability": "payable",
+				"type": "function"
+			}
+		],
+		"devdoc": {
+			"errors": {
+				"FailedDeployment()": [
+					{
+						"details": "The deployment failed."
+					}
+				],
+				"InsufficientBalance(uint256,uint256)": [
+					{
+						"details": "The ETH balance of the account is not enough to perform the operation."
+					}
+				]
+			},
+			"events": {
+				"PoolCreateDebug(string,string,uint256)": {
+					"details": "Additional debug logs for frontends.      - step: a short label for the portion of code      - info: a more descriptive string      - amount: a numeric value if relevant (like msg.value, refunded, etc.)"
+				}
+			},
+			"kind": "dev",
+			"methods": {
+				"createPool(address,bytes)": {
+					"params": {
+						"implementation": "The aggregator's ERC20 implementation address.",
+						"initData": "Calldata for `initialize(...)`, e.g. `initialize(\"MyLP\",\"MLP\",owner)`."
+					},
+					"returns": {
+						"clone": "The address of the newly created aggregator token."
+					}
+				}
+			},
+			"version": 1
+		},
+		"userdoc": {
+			"events": {
+				"PoolCreated(address,address)": {
+					"notice": "Emitted when a new minimal-proxy aggregator token is created."
+				}
+			},
+			"kind": "user",
+			"methods": {
+				"createPool(address,bytes)": {
+					"notice": "Creates a minimal-proxy clone of `implementation`, then calls `initData` on it          to initialize the new aggregator ERC20 pool.          - Potentially charges a creation fee if `ds.poolCreationFee > 0`.         - No usage-limit checks in this version, so anyone can call."
+				}
+			},
+			"version": 1
+		}
+	},
+	"settings": {
+		"compilationTarget": {
+			"Contracts/facets/PoolFactoryFacet.sol": "PoolFactoryFacet"
+		},
+		"evmVersion": "constantinople",
+		"libraries": {},
+		"metadata": {
+			"bytecodeHash": "ipfs"
+		},
+		"optimizer": {
+			"enabled": true,
+			"runs": 200
+		},
+		"remappings": []
+	},
+	"sources": {
+		"@openzeppelin/contracts/proxy/Clones.sol": {
+			"keccak256": "0xf55d01dac75cffdabec6833a79bf3be0c108fc0db10e273daf7adfd3e9e59dae",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://540002a50a2a1a2b9dafffb976178e55adbf8d3a28db462c69f996921479c6b0",
+				"dweb:/ipfs/QmQNAFyMf2FW3U1giM4Yej3zzd1pnxMtAA5GoADj4hTYYD"
+			]
+		},
+		"@openzeppelin/contracts/utils/Errors.sol": {
+			"keccak256": "0x6afa713bfd42cf0f7656efa91201007ac465e42049d7de1d50753a373648c123",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://ba1d02f4847670a1b83dec9f7d37f0b0418d6043447b69f3a29a5f9efc547fcf",
+				"dweb:/ipfs/QmQ7iH2keLNUKgq2xSWcRmuBE5eZ3F5whYAkAGzCNNoEWB"
+			]
+		},
+		"Contracts/facets/PoolFactoryFacet.sol": {
+			"keccak256": "0x4d162252990d153205384a919bdd4fa6dfbb31119ab1233e306f10c4cb3ba198",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://0f9669502286f3b35854eaaeeb7a8ab6e998b4390eeb3c347f5aa300de76686d",
+				"dweb:/ipfs/QmUyyR1yUBQh4SW5cBJgfwZqFrk8YFzgxpprPL1xU8FqaT"
+			]
+		},
+		"Contracts/interfaces/IDiamondCut.sol": {
+			"keccak256": "0xe72d2fd89e151bc47a7fff066b7421fb9d270ba5d56453553b3a65e48f69ba08",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://397a9f80e77b7ca275f5c482ffdb9e9bb972aa099b1ff49142fc5e0614858c6f",
+				"dweb:/ipfs/QmR7VbpGDDa7buHX16ALMNmaGVRjdyZoRRKfi3wXrpHKwC"
+			]
+		},
+		"Contracts/libraries/LibDiamond.sol": {
+			"keccak256": "0xdc691561471964cc753d2eb0483c9ccf632b765c5586ab0043c0afc61c2b4644",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://5c6a9c81dc621488ff02faeb280485a080bd67cc875029c865625669701f39be",
+				"dweb:/ipfs/QmTs3ickK3ymyweoGnHPybqTc5jr5exXfTatv1YnM3eDXq"
+			]
+		},
+		"Contracts/libraries/LibERC20Factory.sol": {
+			"keccak256": "0x098d2136e1cae0b5ffef7eebab488c95fb182cdb8d4c262f7ab8876e46c431fe",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://c4371b3f634e91ebdeef971222d5ac0c24b3567b894bfedb518e0e4267bfe333",
+				"dweb:/ipfs/QmZRHqfmZ7fSHmRU88oTYz8nxCLFqhvXe6t1NGMNqW7GiC"
+			]
+		}
+	},
+	"version": 1
+}

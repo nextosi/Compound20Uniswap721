@@ -1,6 +1,6 @@
 {
   "name": "Rebalancer",
-  "address": "0x8a5dc24ae5fe90b70249e47608d620df3f75249e",
+  "address": "0xb3b2876807fd81f94d901ea24d337ee76e333e3e",
   "abi": [
     {
       "inputs": [
@@ -254,5 +254,5 @@
     }
   ],
   "filePath": "UniComp/Contracts/Rebalancer.sol",
-  "pinnedAt": 1736372139394
+  "pinnedAt": 1736470181216
 }

@@ -1,6 +1,6 @@
 {
   "name": "VaultFactoryImplementation",
-  "address": "0xe0bb87a46b3b1ad8a16fa1127f7831705c508d24",
+  "address": "0xaba334dff766b8cd211a18081e07b5ccfbcfcd21",
   "abi": [
     {
       "inputs": [
@@ -475,5 +475,5 @@
     }
   ],
   "filePath": "UniComp/Contracts/VaultFactoryImplementation.sol",
-  "pinnedAt": 1736361151759
+  "pinnedAt": 1736470219554
 }

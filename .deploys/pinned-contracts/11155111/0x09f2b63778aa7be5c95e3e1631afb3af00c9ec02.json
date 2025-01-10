@@ -1,196 +1,25 @@
 {
   "name": "VaultImplementation",
-  "address": "0xce70c699f012119d9fac9470a8a8011516385821",
+  "address": "0x09f2b63778aa7be5c95e3e1631afb3af00c9ec02",
   "abi": [
     {
+      "anonymous": false,
       "inputs": [
         {
+          "indexed": false,
           "internalType": "address",
-          "name": "target",
-          "type": "address"
-        }
-      ],
-      "name": "AddressEmptyCode",
-      "type": "error"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "spender",
+          "name": "previousAdmin",
           "type": "address"
         },
         {
-          "internalType": "uint256",
-          "name": "value",
-          "type": "uint256"
-        }
-      ],
-      "name": "approve",
-      "outputs": [
-        {
-          "internalType": "bool",
-          "name": "",
-          "type": "bool"
-        }
-      ],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
+          "indexed": false,
           "internalType": "address",
-          "name": "implementation",
+          "name": "newAdmin",
           "type": "address"
         }
       ],
-      "name": "ERC1967InvalidImplementation",
-      "type": "error"
-    },
-    {
-      "inputs": [],
-      "name": "ERC1967NonPayable",
-      "type": "error"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "spender",
-          "type": "address"
-        },
-        {
-          "internalType": "uint256",
-          "name": "allowance",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "needed",
-          "type": "uint256"
-        }
-      ],
-      "name": "ERC20InsufficientAllowance",
-      "type": "error"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "sender",
-          "type": "address"
-        },
-        {
-          "internalType": "uint256",
-          "name": "balance",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "needed",
-          "type": "uint256"
-        }
-      ],
-      "name": "ERC20InsufficientBalance",
-      "type": "error"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "approver",
-          "type": "address"
-        }
-      ],
-      "name": "ERC20InvalidApprover",
-      "type": "error"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "receiver",
-          "type": "address"
-        }
-      ],
-      "name": "ERC20InvalidReceiver",
-      "type": "error"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "sender",
-          "type": "address"
-        }
-      ],
-      "name": "ERC20InvalidSender",
-      "type": "error"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "spender",
-          "type": "address"
-        }
-      ],
-      "name": "ERC20InvalidSpender",
-      "type": "error"
-    },
-    {
-      "inputs": [],
-      "name": "FailedCall",
-      "type": "error"
-    },
-    {
-      "inputs": [],
-      "name": "InvalidInitialization",
-      "type": "error"
-    },
-    {
-      "inputs": [],
-      "name": "NotInitializing",
-      "type": "error"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "owner",
-          "type": "address"
-        }
-      ],
-      "name": "OwnableInvalidOwner",
-      "type": "error"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "account",
-          "type": "address"
-        }
-      ],
-      "name": "OwnableUnauthorizedAccount",
-      "type": "error"
-    },
-    {
-      "inputs": [],
-      "name": "UUPSUnauthorizedCallContext",
-      "type": "error"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "bytes32",
-          "name": "slot",
-          "type": "bytes32"
-        }
-      ],
-      "name": "UUPSUnsupportedProxiableUUID",
-      "type": "error"
+      "name": "AdminChanged",
+      "type": "event"
     },
     {
       "anonymous": false,
@@ -220,6 +49,72 @@
     {
       "inputs": [
         {
+          "internalType": "address",
+          "name": "spender",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        }
+      ],
+      "name": "approve",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "beacon",
+          "type": "address"
+        }
+      ],
+      "name": "BeaconUpgraded",
+      "type": "event"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "spender",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "subtractedValue",
+          "type": "uint256"
+        }
+      ],
+      "name": "decreaseAllowance",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "tokenId",
+          "type": "uint256"
+        },
+        {
           "internalType": "uint256",
           "name": "amount0Desired",
           "type": "uint256"
@@ -228,24 +123,9 @@
           "internalType": "uint256",
           "name": "amount1Desired",
           "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "amount0Min",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "amount1Min",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "deadline",
-          "type": "uint256"
         }
       ],
-      "name": "deposit",
+      "name": "depositAdditional",
       "outputs": [],
       "stateMutability": "nonpayable",
       "type": "function"
@@ -256,44 +136,7 @@
         {
           "indexed": true,
           "internalType": "address",
-          "name": "user",
-          "type": "address"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "usedToken0",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "usedToken1",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "mintedShares",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "depositValue",
-          "type": "uint256"
-        }
-      ],
-      "name": "Deposited",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "oracleManager",
+          "name": "oracle",
           "type": "address"
         },
         {
@@ -316,12 +159,41 @@
       "inputs": [
         {
           "internalType": "address",
-          "name": "_v3Pool",
+          "name": "spender",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "addedValue",
+          "type": "uint256"
+        }
+      ],
+      "name": "increaseAllowance",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_positionManager",
           "type": "address"
         },
         {
           "internalType": "address",
-          "name": "_positionManager",
+          "name": "_uniswapFactory",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_requiredPool",
           "type": "address"
         },
         {
@@ -353,6 +225,11 @@
           "internalType": "string",
           "name": "_symbol",
           "type": "string"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_maxSlippageBps",
+          "type": "uint256"
         }
       ],
       "name": "initialize",
@@ -365,9 +242,9 @@
       "inputs": [
         {
           "indexed": false,
-          "internalType": "uint64",
+          "internalType": "uint8",
           "name": "version",
-          "type": "uint64"
+          "type": "uint8"
         }
       ],
       "name": "Initialized",
@@ -395,9 +272,9 @@
       "anonymous": false,
       "inputs": [
         {
-          "indexed": false,
+          "indexed": true,
           "internalType": "address",
-          "name": "to",
+          "name": "user",
           "type": "address"
         },
         {
@@ -405,9 +282,114 @@
           "internalType": "uint256",
           "name": "tokenId",
           "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "mintedShares",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "addedValue",
+          "type": "uint256"
         }
       ],
-      "name": "NFTWithdrawn",
+      "name": "LiquidityAdded",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "user",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "tokenId",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "burnedShares",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "removedValue",
+          "type": "uint256"
+        }
+      ],
+      "name": "LiquidityRemoved",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "user",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "tokenId",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "mintedShares",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "nftValue",
+          "type": "uint256"
+        }
+      ],
+      "name": "NftDeposited",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "user",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "tokenId",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "burnedShares",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "nftValue",
+          "type": "uint256"
+        }
+      ],
+      "name": "NftWithdrawn",
       "type": "event"
     },
     {
@@ -484,26 +466,55 @@
       "type": "function"
     },
     {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "extraValue",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address",
+          "name": "to",
+          "type": "address"
+        }
+      ],
+      "name": "rebalancerMintShares",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
       "anonymous": false,
       "inputs": [
         {
           "indexed": false,
+          "internalType": "uint256",
+          "name": "extraValue",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
           "internalType": "address",
-          "name": "from",
+          "name": "to",
           "type": "address"
         },
         {
           "indexed": false,
           "internalType": "uint256",
-          "name": "tokenId",
+          "name": "mintedShares",
           "type": "uint256"
         }
       ],
-      "name": "PositionReceived",
+      "name": "RebalancerSharesMinted",
       "type": "event"
     },
     {
       "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "tokenId",
+          "type": "uint256"
+        },
         {
           "internalType": "bytes",
           "name": "data",
@@ -511,6 +522,24 @@
         }
       ],
       "name": "rebalanceVault",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "tokenId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "sharesToBurn",
+          "type": "uint256"
+        }
+      ],
+      "name": "removeLiquidity",
       "outputs": [],
       "stateMutability": "nonpayable",
       "type": "function"
@@ -569,6 +598,19 @@
       "type": "function"
     },
     {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "newSlippageBps",
+          "type": "uint256"
+        }
+      ],
+      "name": "setMaxSlippageBps",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
       "anonymous": false,
       "inputs": [
         {
@@ -594,6 +636,25 @@
       "type": "event"
     },
     {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "oldSlippageBps",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "newSlippageBps",
+          "type": "uint256"
+        }
+      ],
+      "name": "SlippageUpdated",
+      "type": "event"
+    },
+    {
       "inputs": [
         {
           "internalType": "address",
@@ -602,7 +663,7 @@
         },
         {
           "internalType": "uint256",
-          "name": "value",
+          "name": "amount",
           "type": "uint256"
         }
       ],
@@ -656,7 +717,7 @@
         },
         {
           "internalType": "uint256",
-          "name": "value",
+          "name": "amount",
           "type": "uint256"
         }
       ],
@@ -723,6 +784,19 @@
           "internalType": "address",
           "name": "newImplementation",
           "type": "address"
+        }
+      ],
+      "name": "upgradeTo",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "newImplementation",
+          "type": "address"
         },
         {
           "internalType": "bytes",
@@ -759,6 +833,12 @@
       "inputs": [
         {
           "indexed": false,
+          "internalType": "uint256",
+          "name": "tokenId",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
           "internalType": "bytes",
           "name": "data",
           "type": "bytes"
@@ -771,74 +851,9 @@
       "inputs": [
         {
           "internalType": "uint256",
-          "name": "sharesToBurn",
+          "name": "tokenId",
           "type": "uint256"
         },
-        {
-          "internalType": "uint256",
-          "name": "liquidityPctBps",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "amount0Min",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "amount1Min",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "deadline",
-          "type": "uint256"
-        }
-      ],
-      "name": "withdraw",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "user",
-          "type": "address"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint128",
-          "name": "liquidityRemoved",
-          "type": "uint128"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "amount0Out",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "amount1Out",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "sharesBurned",
-          "type": "uint256"
-        }
-      ],
-      "name": "Withdrawn",
-      "type": "event"
-    },
-    {
-      "inputs": [
         {
           "internalType": "address",
           "name": "to",
@@ -868,6 +883,25 @@
         }
       ],
       "name": "allowance",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "name": "allTokenIds",
       "outputs": [
         {
           "internalType": "uint256",
@@ -933,9 +967,22 @@
       "name": "liquidator",
       "outputs": [
         {
-          "internalType": "contract Liquidator",
+          "internalType": "contract LiquidatorType",
           "name": "",
           "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "maxSlippageBps",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
         }
       ],
       "stateMutability": "view",
@@ -955,11 +1002,40 @@
       "type": "function"
     },
     {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "name": "nftPositions",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "exists",
+          "type": "bool"
+        },
+        {
+          "internalType": "uint256",
+          "name": "mintedShares",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address",
+          "name": "originalDepositor",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
       "inputs": [],
       "name": "oracleManager",
       "outputs": [
         {
-          "internalType": "contract OracleManager",
+          "internalType": "contract OracleManagerType",
           "name": "",
           "type": "address"
         }
@@ -1024,7 +1100,20 @@
       "name": "rebalancer",
       "outputs": [
         {
-          "internalType": "contract Rebalancer",
+          "internalType": "contract RebalancerType",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "requiredPool",
+      "outputs": [
+        {
+          "internalType": "address",
           "name": "",
           "type": "address"
         }
@@ -1060,38 +1149,12 @@
     },
     {
       "inputs": [],
-      "name": "UPGRADE_INTERFACE_VERSION",
+      "name": "uniswapFactory",
       "outputs": [
         {
-          "internalType": "string",
-          "name": "",
-          "type": "string"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "v3Pool",
-      "outputs": [
-        {
-          "internalType": "address",
+          "internalType": "contract IUniswapV3Factory",
           "name": "",
           "type": "address"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "vaultTokenId",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
         }
       ],
       "stateMutability": "view",
@@ -1099,5 +1162,5 @@
     }
   ],
   "filePath": "UniComp/Contracts/VaultImplementation.sol",
-  "pinnedAt": 1736374987497
+  "pinnedAt": 1736470106816
 }
