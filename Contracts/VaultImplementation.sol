@@ -40,7 +40,8 @@ library TickMathLocal {
  * ------------------------------------------------------------------ */
 library PoolAddressLocal {
     // Replace with Uniswap V3’s actual init code hash:
-    bytes32 internal constant POOL_INIT_CODE_HASH = 0xe34f000000000000000000000000000000000000000000000000000000000000;
+    bytes32 internal constant POOL_INIT_CODE_HASH =
+        0xe34f000000000000000000000000000000000000000000000000000000000000;
 
     struct PoolKey {
         address token0;
@@ -116,7 +117,9 @@ import "@uniswap/v3-periphery/contracts/libraries/LiquidityAmounts.sol";
  *    Replace with your real code or references
  * ------------------------------------------------------------------ */
 interface OracleManagerType {
-    function getPrice(address) external view returns (uint256, uint8);
+    // Must be configured with isVaultToken=true for this vault,
+    // so getPrice(vaultAddr) => returns "USD per 1 share"
+    function getPrice(address token) external view returns (uint256, uint8);
 }
 
 interface RebalancerType {
@@ -129,7 +132,7 @@ interface LiquidatorType {
 
 /* ------------------------------------------------------------------
  * 5) VaultImplementation (UUPS) referencing local libraries 
- *    for addressing cast issues, with splitted "removeLiquidity"
+ *    with splitted "removeLiquidity" and advanced multi-NFT logic
  * ------------------------------------------------------------------ */
 contract VaultImplementation is
     ERC20Upgradeable,
@@ -147,13 +150,13 @@ contract VaultImplementation is
     INonfungiblePositionManager public positionManager;
     IUniswapV3Factory           public uniswapFactory;
 
-    /// The single Uniswap V3 pool this vault accepts
+    /// The single Uniswap V3 pool this vault accepts (e.g. LINK/USD)
     address public requiredPool;
 
     /// Slippage in BPS (e.g. 300 => 3%)
     uint256 public maxSlippageBps;
 
-    /// Multi-NFT data
+    /// Data for each NFT
     struct NftPosition {
         bool    exists;
         uint256 mintedShares;     
@@ -162,37 +165,26 @@ contract VaultImplementation is
     mapping(uint256 => NftPosition) public nftPositions;
     uint256[] public allTokenIds;
 
-    // Small struct to hold position data read from NFPM
-    struct PositionData {
-        address token0;
-        address token1;
-        uint24 fee;
-        int24  tickLower;
-        int24  tickUpper;
-        uint128 liquidity;
-        uint128 owed0;
-        uint128 owed1;
-    }
-
     // Events
     event ExternalContractsUpdated(address indexed oracle, address indexed rebal, address indexed liq);
     event SlippageUpdated(uint256 oldSlippage, uint256 newSlippage);
-    event NftDeposited(address indexed user, uint256 tokenId, uint256 mintedShares, uint256 nftValue);
-    event NftWithdrawn(address indexed user, uint256 tokenId, uint256 burnedShares, uint256 nftValue);
-    event LiquidityAdded(address indexed user, uint256 tokenId, uint256 mintedShares, uint256 addedValue);
-    event LiquidityRemoved(address indexed user, uint256 tokenId, uint256 burnedShares, uint256 removedValue);
+    event NftDeposited(address indexed user, uint256 tokenId, uint256 mintedShares, uint256 nftValueUsd);
+    event NftWithdrawn(address indexed user, uint256 tokenId, uint256 burnedShares, uint256 nftValueUsd);
+    event LiquidityAdded(address indexed user, uint256 tokenId, uint256 mintedShares, uint256 addedValueUsd);
+    event LiquidityRemoved(address indexed user, uint256 tokenId, uint256 burnedShares, uint256 removedValueUsd);
     event VaultRebalanced(uint256 tokenId, bytes data);
     event VaultLiquidated(address user, bytes data);
     event SharesSeized(address user, uint256 shares, address recipient);
-    event RebalancerSharesMinted(uint256 extraValue, address to, uint256 mintedShares);
+    event RebalancerSharesMinted(uint256 extraValueUsd, address to, uint256 mintedShares);
 
     // UUPS
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 
     /**
-     * @dev The Vault now has an 8-parameter initialize method, matching the factory’s call.
-     *      1) We derive `uniswapFactory` from the passed-in Uniswap V3 pool (`_requiredPool`).
-     *      2) We set a default maxSlippageBps (here, 5%) to keep existing logic in deposit/remove.
+     * @dev Initialize. 
+     *  - _requiredPool: the specific Uniswap V3 pool (LINK/USD, etc.) 
+     *  - The OracleManager must be configured so that getPrice(address(this)) => returns 
+     *    "USD per share" for the entire vault. 
      */
     function initialize(
         address _requiredPool,
@@ -205,7 +197,6 @@ contract VaultImplementation is
         string memory _symbol
     ) external initializer {
         __Ownable_init(_owner);
-
         __ERC20_init(_name, _symbol);
         __Pausable_init();
         __ReentrancyGuard_init();
@@ -220,7 +211,7 @@ contract VaultImplementation is
         // Store references
         positionManager = INonfungiblePositionManager(_positionManager);
 
-        // Derive the factory from the v3 pool (which must implement `factory()`)
+        // Derive the UniswapV3Factory from the pool
         address factoryAddr = IUniswapV3Pool(_requiredPool).factory();
         require(factoryAddr != address(0), "Vault: invalid factory from pool");
         uniswapFactory = IUniswapV3Factory(factoryAddr);
@@ -230,7 +221,7 @@ contract VaultImplementation is
         rebalancer    = RebalancerType(_rebalancer);
         liquidator    = LiquidatorType(_liquidator);
 
-        // Use a default slippage tolerance for subsequent operations (e.g. 5%).
+        // Default slippage (5%)
         maxSlippageBps = 500;
 
         emit ExternalContractsUpdated(_oracleMgr, _rebalancer, _liquidator);
@@ -268,7 +259,15 @@ contract VaultImplementation is
         _unpause();
     }
 
-    // ------------------ NFT Handling ------------------
+    // ------------------ NFT Handling (Deposit / Withdraw) ------------------
+
+    /**
+     * @dev onERC721Received is triggered when user does:
+     *   positionManager.safeTransferFrom(user, vaultAddress, tokenId)
+     * This vault enforces:
+     *   require(msg.sender == address(positionManager)), 
+     *   to ensure the NFT is truly from the official NFPM.
+     */
     function onERC721Received(
         address operator,
         address from,
@@ -280,18 +279,30 @@ contract VaultImplementation is
 
         _ensureCorrectPool(tokenId);
 
-        uint256 nftValue   = _getNftValue(tokenId);
+        // 1) Compute approximate USD value of the incoming NFT
+        uint256 nftValueUsd = _approxNftUsdValue(tokenId);
+
+        // 2) Mint shares
         uint256 oldSupply  = totalSupply();
-        uint256 oldValue   = _getTotalVaultValue();
+        uint256 oldValue   = _getTotalVaultUsdValue(); // from aggregator
         uint256 minted;
 
         if (oldSupply == 0) {
-            minted = nftValue;
+            // First NFT => 1:1 with USD 
+            minted = nftValueUsd;
         } else {
-            minted = (nftValue * oldSupply) / (oldValue == 0 ? 1 : oldValue);
+            // minted = fraction * oldSupply
+            // fraction = nftValueUsd / oldValue
+            // minted = (nftValueUsd * oldSupply) / oldValue
+            if (oldValue == 0) {
+                minted = nftValueUsd;
+            } else {
+                minted = (nftValueUsd * oldSupply) / oldValue;
+            }
         }
         require(minted > 0 || oldSupply == 0, "Vault: minted=0? check NFT?");
 
+        // 3) Record 
         nftPositions[tokenId] = NftPosition({
             exists: true,
             mintedShares: minted,
@@ -299,31 +310,35 @@ contract VaultImplementation is
         });
         allTokenIds.push(tokenId);
 
+        // 4) Mint shares to the depositor
         if (minted > 0) {
             _mint(from, minted);
         }
 
-        emit NftDeposited(from, tokenId, minted, nftValue);
+        emit NftDeposited(from, tokenId, minted, nftValueUsd);
         return IERC721ReceiverUpgradeable.onERC721Received.selector;
     }
 
+    /**
+     * @dev Withdraws a specific NFT, burning the shares minted for it.
+     */
     function withdrawNFT(uint256 tokenId, address to) external nonReentrant whenNotPaused {
         require(to != address(0), "Vault: invalid to");
         NftPosition storage pos = nftPositions[tokenId];
         require(pos.exists, "Vault: not found");
 
-        uint256 needed = pos.mintedShares;
-        require(balanceOf(msg.sender) >= needed, "Vault: insufficient shares");
-        _burn(msg.sender, needed);
+        uint256 neededShares = pos.mintedShares;
+        require(balanceOf(msg.sender) >= neededShares, "Vault: insufficient shares");
+        _burn(msg.sender, neededShares);
 
         pos.exists = false;
         positionManager.safeTransferFrom(address(this), to, tokenId);
 
-        uint256 val = _getNftValue(tokenId);
-        emit NftWithdrawn(msg.sender, tokenId, needed, val);
+        uint256 valUsd = _getNftValue(tokenId); // current approximate 
+        emit NftWithdrawn(msg.sender, tokenId, neededShares, valUsd);
     }
 
-    // depositAdditional
+    // ------------------ Additional Liquidity in an NFT ------------------
     function depositAdditional(
         uint256 tokenId,
         uint256 amount0Desired,
@@ -335,12 +350,13 @@ contract VaultImplementation is
 
         _ensureCorrectPool(tokenId);
 
-        uint256 oldVal = _getTotalVaultValue();
-        uint256 oldSup = totalSupply();
+        uint256 oldValUsd = _getTotalVaultUsdValue();
+        uint256 oldSup    = totalSupply();
 
         uint256 amt0min = (amount0Desired * (10000 - maxSlippageBps)) / 10000;
         uint256 amt1min = (amount1Desired * (10000 - maxSlippageBps)) / 10000;
 
+        // Increase liquidity 
         INonfungiblePositionManager.IncreaseLiquidityParams memory p =
             INonfungiblePositionManager.IncreaseLiquidityParams({
                 tokenId: tokenId,
@@ -353,12 +369,15 @@ contract VaultImplementation is
         (uint128 liq, , ) = positionManager.increaseLiquidity(p);
         require(liq > 0, "No liquidity added?");
 
-        uint256 newVal = _getTotalVaultValue();
-        require(newVal > oldVal, "No net value?");
-        uint256 depositValue = newVal - oldVal;
+        // Recompute the new total vault USD
+        uint256 newValUsd = _getTotalVaultUsdValue();
+        require(newValUsd > oldValUsd, "No net value?");
+        uint256 depositValue = newValUsd - oldValUsd;
+
+        // Mint shares for the user based on fraction
         uint256 minted = (oldSup == 0)
             ? depositValue
-            : (depositValue * oldSup) / (oldVal == 0 ? 1 : oldVal);
+            : (depositValue * oldSup) / (oldValUsd == 0 ? 1 : oldValUsd);
 
         pos.mintedShares += minted;
         if (minted > 0) {
@@ -369,12 +388,10 @@ contract VaultImplementation is
     }
 
     /**
-     * -------------- Stack-Too-Deep Fix in removeLiquidity --------------
-     * We define a small struct to store local variables and/or 
-     * break logic into an internal sub-function.
+     * Remove liquidity partially from an NFT, returning tokens directly to user
      */
     struct RemoveLiquidityLocalVars {
-        uint256 oldVal;
+        uint256 oldValUsd;
         uint256 oldSup;
         uint128 currentLiquidity;
         uint128 liqRemove;
@@ -392,7 +409,7 @@ contract VaultImplementation is
         NftPosition storage pos = nftPositions[tokenId];
         require(pos.exists, "Vault: unknown token");
         require(sharesToBurn > 0, "No shares to burn");
-        require(balanceOf(msg.sender) >= sharesToBurn, "insufficient shares");
+        require(balanceOf(msg.sender) >= sharesToBurn, "Vault: insufficient shares");
 
         _ensureCorrectPool(tokenId);
 
@@ -400,10 +417,10 @@ contract VaultImplementation is
         _burn(msg.sender, sharesToBurn);
 
         RemoveLiquidityLocalVars memory v;
-        v.oldVal = _getTotalVaultValue();
-        v.oldSup = totalSupply() + sharesToBurn;
+        v.oldValUsd = _getTotalVaultUsdValue();
+        v.oldSup    = totalSupply() + sharesToBurn;
 
-        // get NFT liquidity
+        // get NFT liquidity 
         (
             ,
             ,
@@ -419,8 +436,10 @@ contract VaultImplementation is
 
         ) = positionManager.positions(tokenId);
 
+        // proportion to remove
         v.liqRemove = uint128((uint256(v.currentLiquidity) * sharesToBurn) / v.oldSup);
         if (v.liqRemove > 0) {
+            // estimate amounts 
             (uint256 est0, uint256 est1) = _estimateTokenAmounts(tokenId, v.liqRemove);
             uint256 min0 = (est0 * (10000 - maxSlippageBps)) / 10000;
             uint256 min1 = (est1 * (10000 - maxSlippageBps)) / 10000;
@@ -436,7 +455,7 @@ contract VaultImplementation is
                 });
             (uint256 removed0, uint256 removed1) = positionManager.decreaseLiquidity(d);
 
-            // collect
+            // collect 
             INonfungiblePositionManager.CollectParams memory c =
                 INonfungiblePositionManager.CollectParams({
                     tokenId: tokenId,
@@ -448,33 +467,34 @@ contract VaultImplementation is
         }
         pos.mintedShares -= sharesToBurn;
 
-        uint256 newVal = _getTotalVaultValue();
-        uint256 removedValue = (v.oldVal > newVal) ? (v.oldVal - newVal) : 0;
+        uint256 newValUsd = _getTotalVaultUsdValue();
+        uint256 removedValue = (v.oldValUsd > newValUsd) ? (v.oldValUsd - newValUsd) : 0;
+
         emit LiquidityRemoved(msg.sender, tokenId, sharesToBurn, removedValue);
     }
 
-    // Rebalance
+    // ------------------ Rebalance & Liquidation ------------------
     function rebalanceVault(uint256 tokenId, bytes calldata data) external whenNotPaused {
         require(nftPositions[tokenId].exists, "Vault: no such NFT");
         rebalancer.rebalance(address(this), data);
         emit VaultRebalanced(tokenId, data);
     }
 
-    function rebalancerMintShares(uint256 extraValue, address to) external {
+    function rebalancerMintShares(uint256 extraValueUsd, address to) external {
         require(msg.sender == address(rebalancer), "Vault: only rebalancer");
-        require(extraValue > 0, "No extraValue");
-        uint256 oldVal = _getTotalVaultValue();
+        require(extraValueUsd > 0, "No extraValue");
+        uint256 oldVal = _getTotalVaultUsdValue();
         uint256 oldSup = totalSupply();
 
+        // minted shares = fraction of old supply
         uint256 minted = (oldSup == 0)
-            ? extraValue
-            : (extraValue * oldSup) / (oldVal == 0 ? 1 : oldVal);
+            ? extraValueUsd
+            : (extraValueUsd * oldSup) / (oldVal == 0 ? 1 : oldVal);
 
         _mint(to, minted);
-        emit RebalancerSharesMinted(extraValue, to, minted);
+        emit RebalancerSharesMinted(extraValueUsd, to, minted);
     }
 
-    // Liquidator
     function liquidatePosition(address user, bytes calldata data) external whenNotPaused {
         (uint256 liquidationAmount) = abi.decode(data, (uint256));
         liquidator.liquidate(address(this), user, liquidationAmount);
@@ -489,76 +509,112 @@ contract VaultImplementation is
         emit SharesSeized(from, shares, recipient);
     }
 
-    // Price
+    // ------------------ Price (Vault as a single "token") ------------------
+    /**
+     * The OracleManager is set up with isVaultToken=true for this address.
+     * So getPrice(address(this)) => "USD per share" 
+     */
     function getUnderlyingPrice() external view returns (uint256 price, uint8 decimals) {
         return oracleManager.getPrice(address(this));
     }
 
-    /* ------------------------------------------------------------------
-       Internal Helpers
-    ------------------------------------------------------------------ */
+    // ------------------ Internal Helpers ------------------
 
     /**
-     * Fetch position data into a struct to reduce local variables in _getNftValue().
+     * @dev Approximate the NFT's USD value by comparing its liquidity 
+     *      to the total vault liquidity, then multiplying by the vault's 
+     *      total USD. 
      */
-    function _getPositionData(uint256 tokenId) internal view returns (PositionData memory pd) {
-        (
-            ,
-            ,
-            pd.token0,
-            pd.token1,
-            pd.fee,
-            pd.tickLower,
-            pd.tickUpper,
-            pd.liquidity,
-            ,
-            ,
-            pd.owed0,
-            pd.owed1
-        ) = positionManager.positions(tokenId);
-    }
-
-    /**
-     * Clean refactor of _getNftValue using fewer local variables.
-     */
-    function _getNftValue(uint256 tokenId) internal view returns (uint256) {
-        // 1) Fetch position data
-        PositionData memory pd = _getPositionData(tokenId);
-
-        // 2) Validate the Uniswap pool
-        address poolAddr = uniswapFactory.getPool(pd.token0, pd.token1, pd.fee);
-        require(poolAddr == requiredPool, "Vault: NFT from wrong pool");
-
-        // 3) Compute amounts from active liquidity
-        (uint160 sqrtPriceX96, , , , , , ) = IUniswapV3Pool(poolAddr).slot0();
-        (uint256 amt0Active, uint256 amt1Active) = LiquidityAmounts.getAmountsForLiquidity(
-            sqrtPriceX96,
-            TickMathLocal.getSqrtRatioAtTick(pd.tickLower),
-            TickMathLocal.getSqrtRatioAtTick(pd.tickUpper),
-            pd.liquidity
-        );
-        uint256 total0 = amt0Active + pd.owed0;
-        uint256 total1 = amt1Active + pd.owed1;
-
-        // 4) Fetch prices, do inline arithmetic
-        (uint256 p0, uint8 d0) = oracleManager.getPrice(pd.token0);
-        (uint256 p1, uint8 d1) = oracleManager.getPrice(pd.token1);
-
-        // 5) Return aggregated dollar value
-        return ((total0 * p0) / (10**d0)) + ((total1 * p1) / (10**d1));
-    }
-
-    function _getTotalVaultValue() internal view returns (uint256) {
-        uint256 sum;
+    function _approxNftUsdValue(uint256 tokenId) internal view returns (uint256) {
+        // 1) sum total liquidity of all NFTs
+        uint256 totalLiq;
         for (uint256 i = 0; i < allTokenIds.length; i++) {
             uint256 tid = allTokenIds[i];
             if (nftPositions[tid].exists) {
-                sum += _getNftValue(tid);
+                (, , , , , , , uint128 liq, , , ,) = positionManager.positions(tid);
+                totalLiq += liq;
             }
         }
-        return sum;
+
+        // 2) get this NFT's liquidity
+        (
+            ,
+            ,
+            ,
+            ,
+            ,
+            ,
+            ,
+            uint128 nftLiq,
+            ,
+            ,
+            ,
+
+        ) = positionManager.positions(tokenId);
+
+        if (nftLiq == 0) {
+            // no liquidity => 0
+            return 0;
+        }
+
+        // 3) get entire vault's total USD from aggregator
+        uint256 vaultUsd = _getTotalVaultUsdValue();
+        uint256 combinedLiq = totalLiq + nftLiq; 
+        // if old NFT is not yet included in total?
+
+        // 4) fraction = nftLiq / (totalLiq + nftLiq) 
+        //    approximate NFT portion of "the new total" 
+        //    If vaultUsd=0 => minted=0
+        //    If totalLiq=0 => let fraction=1
+        uint256 fraction;
+        if (combinedLiq == 0) {
+            fraction = 1; 
+        } else {
+            fraction = (uint256(nftLiq) * 1e18) / combinedLiq; // fraction in [0..1], scaled 1e18
+        }
+
+
+        uint256 nftValue = (vaultUsd * fraction) / 1e18;
+        return nftValue;
     }
 
+    /**
+     * @dev Return how many total "USD" the vault represents, by calling
+     *      oracleManager.getPrice(address(this)) => (pricePerShare, decimals)
+     *      Then multiply price/share * totalSupply 
+     */
+    function _getTotalVaultUsdValue() internal view returns (uint256) {
+        (uint256 psPrice, uint8 psDec) = oracleManager.getPrice(address(this));
+        uint256 supply = totalSupply();
+        if (supply == 0) {
+            return 0;
+        }
+        // totalUsd = (psPrice * supply) / 10^psDec
+        return (psPrice * supply) / (10 ** psDec);
+    }
+
+    /**
+     * @dev Return the approximate current value of an NFT => 
+     *      mintedShares * (vaultPrice/share / 10^dec).
+     *      Because mintedShares ~ fraction of total supply.
+     */
+    function _getNftValue(uint256 tokenId) internal view returns (uint256) {
+        NftPosition storage pos = nftPositions[tokenId];
+        if (!pos.exists) {
+            return 0;
+        }
+        // per-share price
+        (uint256 psPrice, uint8 psDec) = oracleManager.getPrice(address(this));
+
+        // minted shares for this NFT
+        uint256 minted = pos.mintedShares;
+        // NFT’s portion = minted * price/share / 10^dec
+        return (minted * psPrice) / (10 ** psDec);
+    }
+
+    /**
+     * @dev Ensures the NFT's pool is exactly requiredPool
+     */
     function _ensureCorrectPool(uint256 tokenId) internal view {
         (
             ,
@@ -578,6 +634,9 @@ contract VaultImplementation is
         require(poolAddr == requiredPool, "Vault: mismatch pool");
     }
 
+    /**
+     * @dev For removing liquidity. 
+     */
     function _estimateTokenAmounts(uint256 tokenId, uint128 liqToRemove)
         internal
         view
