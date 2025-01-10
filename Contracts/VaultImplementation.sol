@@ -190,20 +190,19 @@ contract VaultImplementation is
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 
     /**
-     * If your custom Ownable requires an argument in __Ownable_init(...), pass it here. 
-     * If using standard OZ 4.8, you can do __Ownable_init() + _transferOwnership(_owner).
+     * @dev The Vault now has an 8-parameter initialize method, matching the factory’s call.
+     *      1) We derive `uniswapFactory` from the passed-in Uniswap V3 pool (`_requiredPool`).
+     *      2) We set a default maxSlippageBps (here, 5%) to keep existing logic in deposit/remove.
      */
     function initialize(
-        address _positionManager,
-        address _uniswapFactory,
         address _requiredPool,
+        address _positionManager,
         address _oracleMgr,
         address _rebalancer,
         address _liquidator,
         address _owner,
         string memory _name,
-        string memory _symbol,
-        uint256 _maxSlippageBps
+        string memory _symbol
     ) external initializer {
         __Ownable_init(_owner);
 
@@ -212,21 +211,27 @@ contract VaultImplementation is
         __ReentrancyGuard_init();
         __UUPSUpgradeable_init();
 
-        require(_positionManager != address(0), "Vault: invalid posMgr");
-        require(_uniswapFactory  != address(0), "Vault: invalid factory");
         require(_requiredPool    != address(0), "Vault: invalid pool");
+        require(_positionManager != address(0), "Vault: invalid posMgr");
         require(_oracleMgr       != address(0), "Vault: invalid oracle");
         require(_rebalancer      != address(0), "Vault: invalid rebalancer");
         require(_liquidator      != address(0), "Vault: invalid liquidator");
-        require(_maxSlippageBps <= 5000,        "Vault: slippage too high");
 
+        // Store references
         positionManager = INonfungiblePositionManager(_positionManager);
-        uniswapFactory  = IUniswapV3Factory(_uniswapFactory);
-        requiredPool    = _requiredPool;
-        oracleManager   = OracleManagerType(_oracleMgr);
-        rebalancer      = RebalancerType(_rebalancer);
-        liquidator      = LiquidatorType(_liquidator);
-        maxSlippageBps  = _maxSlippageBps;
+
+        // Derive the factory from the v3 pool (which must implement `factory()`)
+        address factoryAddr = IUniswapV3Pool(_requiredPool).factory();
+        require(factoryAddr != address(0), "Vault: invalid factory from pool");
+        uniswapFactory = IUniswapV3Factory(factoryAddr);
+
+        requiredPool  = _requiredPool;
+        oracleManager = OracleManagerType(_oracleMgr);
+        rebalancer    = RebalancerType(_rebalancer);
+        liquidator    = LiquidatorType(_liquidator);
+
+        // Use a default slippage tolerance for subsequent operations (e.g. 5%).
+        maxSlippageBps = 500;
 
         emit ExternalContractsUpdated(_oracleMgr, _rebalancer, _liquidator);
     }
