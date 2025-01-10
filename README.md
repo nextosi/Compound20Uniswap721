@@ -1,0 +1,1 @@
+For launching the frontend, if you are not doing direct interactions in Terminal or Remix, make sure you create a folder structure where the index.html is the top level with the server file. Than have a folder called ABI, than the next folders need the chainID, than the ABI's in a .JSON format.

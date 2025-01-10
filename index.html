@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Vault + Oracle/Liquidator/Rebalancer + NFT</title>
+  <style>
+    body { font-family: sans-serif; margin: 20px; }
+    input { margin: 4px 0; width: 320px; }
+    button { margin: 4px 0; }
+    .section { border: 1px solid #ccc; padding: 16px; margin: 16px 0; }
+    select { width: 330px; margin-top: 4px; }
+    .infoGroup { border: 1px solid #ddd; padding: 10px; margin-top: 10px; }
+    table { border-collapse: collapse; margin-top: 10px; }
+    table th, table td { border: 1px solid #ccc; padding: 6px; }
+  </style>
+</head>
+<body>
+
+<h1>Vault + Oracle/Liquidator/Rebalancer + NFT</h1>
+
+<div class="section">
+  <h3>1) Connect Wallet</h3>
+  <button id="connectBtn">Connect Metamask</button>
+  <div id="walletStatus"></div>
+  <p id="chainInfo"></p>
+</div>
+
+<div class="section">
+  <h3>2) Create Vault</h3>
+  <div>v3Pool: <input id="v3PoolInput" placeholder="0x pool" /></div>
+  <div>NonfungiblePositionManager: <input id="posMgrInput" placeholder="0x NFPM" /></div>
+  <p>Oracle / Rebal / Liquidator - leave blank to use fallback addresses</p>
+  <div>Oracle: <input id="oracleInput" placeholder="0x..." /></div>
+  <div>Rebalancer: <input id="rebalInput" placeholder="0x..." /></div>
+  <div>Liquidator: <input id="liqInput" placeholder="0x..." /></div>
+  <p>Name + Symbol:</p>
+  <div>Name: <input id="vaultName" placeholder="Token Name" /></div>
+  <div>Symbol: <input id="vaultSymbol" placeholder="Symbol" /></div>
+  <button id="createVaultBtn">Create Vault</button>
+  <div id="createStatus"></div>
+</div>
+
+<div class="section">
+  <h3>3) Configurator (Oracle, Rebalancer, Liquidator)</h3>
+  <div class="infoGroup">
+    <h4>OracleManager Config</h4>
+    <div>Token/Vault: <input id="oracleCfgToken" placeholder="Vault or token address" /></div>
+    <div>Primary Aggregator: <input id="oracleCfgPrimary" placeholder="0x feed" /></div>
+    <div>Fallback Aggregator: <input id="oracleCfgFallback" placeholder="0x0 if not used" /></div>
+    <div>Use Fallback?
+      <select id="oracleCfgUseFallback">
+        <option value="false">false</option>
+        <option value="true">true</option>
+      </select>
+    </div>
+    <div>Decimals Override: <input id="oracleCfgDecimals" placeholder="8" /></div>
+    <div>isVaultToken?
+      <select id="oracleCfgIsVaultToken">
+        <option value="false">false</option>
+        <option value="true">true</option>
+      </select>
+    </div>
+    <button id="btnSetOracleConfig">setOracleConfig</button>
+    <div id="oracleConfigStatus"></div>
+    <p>If <code>isVaultToken=true</code>, set underlying feeds:</p>
+    <div>Vault Token: <input id="vaultFeedsVault" placeholder="Vault token address" /></div>
+    <div>Token0 Agg: <input id="vaultFeedsT0Agg" placeholder="0x feed" /></div>
+    <div>Token1 Agg: <input id="vaultFeedsT1Agg" placeholder="0x feed" /></div>
+    <div>token0Dec: <input id="vaultFeedsT0Dec" placeholder="8" /></div>
+    <div>token1Dec: <input id="vaultFeedsT1Dec" placeholder="8" /></div>
+    <button id="btnSetVaultFeeds">setVaultUnderlyingFeeds</button>
+    <div id="vaultFeedsStatus"></div>
+  </div>
+  <div class="infoGroup">
+    <h4>Rebalancer Config</h4>
+    <div>Rebalancer Address: <input id="rebalancerAddress" placeholder="0x rebalancer" /></div>
+    <div>New Oracle for Rebalancer: <input id="rebalancerNewOracle" placeholder="0x..." /></div>
+    <button id="btnRebalancerSetOracle">setOracleManager</button>
+    <p>Price Bounds</p>
+    <div>Min Price: <input id="rebalancerMinPrice" placeholder="1" /></div>
+    <div>Max Price: <input id="rebalancerMaxPrice" placeholder="999999999" /></div>
+    <button id="btnRebalancerSetBounds">setPriceBounds</button>
+    <div id="rebalancerStatus"></div>
+  </div>
+  <div class="infoGroup">
+    <h4>Liquidator Config</h4>
+    <div>Liquidator Address: <input id="liquidatorAddress" placeholder="0x Liquidator" /></div>
+    <div>Min Collateral Value: <input id="liqMinColl" placeholder="100000000" /></div>
+    <div>Liquidation Fee Bps: <input id="liqFeeBps" placeholder="500" /></div>
+    <div>Max Liquidation Bps: <input id="liqMaxBps" placeholder="5000" /></div>
+    <button id="btnLiqSetAll">Set Liquidator Config</button>
+    <div id="liquidatorStatus"></div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>4) List Vaults & Inspect One</h3>
+  <button id="listVaultsBtn">Get All Vaults</button>
+  <div id="allVaults"></div>
+  <p>Select a vault:</p>
+  <select id="vaultSelect"></select>
+  <button id="inspectVaultBtn">Inspect Vault</button>
+  <div id="vaultInfo"></div>
+  <div class="infoGroup">
+    <h4>Get Price</h4>
+    <button id="btnGetPrice">Get Price</button>
+    <div id="priceResult"></div>
+  </div>
+  <div class="infoGroup">
+    <h4>Rebalance</h4>
+    <input id="rebalanceData" placeholder="0x..." />
+    <button id="btnRebalance">Rebalance</button>
+    <div id="rebalanceStatus"></div>
+  </div>
+  <div class="infoGroup">
+    <h4>Liquidate</h4>
+    <div>Target User: <input id="liquidateUser" placeholder="0x user" /></div>
+    <div>Data: <input id="liquidateData" placeholder="0x..." /></div>
+    <button id="btnLiquidate">Liquidate</button>
+    <div id="liquidateStatus"></div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>5) NFT Deposit/Withdraw + (Optional) ERC20 Deposit</h3>
+  <div class="infoGroup">
+    <h4>Deposit Uniswap V3 NFT to Vault</h4>
+    <p>Transfers your Uniswap position NFT to the vault.</p>
+    <div>PositionManager Address: <input id="nftPosMgr" placeholder="0x NFPM" /></div>
+    <div>NFT TokenId: <input id="nftTokenId" placeholder="NFT position ID" /></div>
+    <div>Vault Address: <input id="nftVaultAddr" placeholder="Vault" /></div>
+    <button id="btnDepositNft">Deposit NFT</button>
+    <div id="depositNftStatus"></div>
+  </div>
+  <div class="infoGroup">
+    <h4>Withdraw NFT from Vault</h4>
+    <p>Requires burning shares minted for that NFT in many designs.</p>
+    <div>Vault Address: <input id="nftWithdrawVault" placeholder="Vault that holds NFT" /></div>
+    <div>tokenId: <input id="nftWithdrawTokenId" placeholder="tokenId" /></div>
+    <div>Recipient: <input id="nftWithdrawRecipient" placeholder="Recipient" /></div>
+    <button id="btnWithdrawNft">Withdraw NFT</button>
+    <div id="withdrawNftStatus"></div>
+  </div>
+  <div class="infoGroup">
+    <h4>(Optional) Approve & Deposit ERC20 to Vault</h4>
+    <div>Token0 Address: <input id="token0Address" placeholder="0x..." /></div>
+    <div>Token1 Address: <input id="token1Address" placeholder="0x..." /></div>
+    <div>Amount0: <input id="amount0" placeholder="0" /></div>
+    <div>Amount1: <input id="amount1" placeholder="0" /></div>
+    <div>Vault Address: <input id="targetVault" placeholder="Vault to deposit ERC20" /></div>
+    <button id="approveTokensBtn">Approve Tokens</button>
+    <button id="depositBtn">Deposit ERC20</button>
+    <div id="depositStatus"></div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>6) Manage NFTs in Vault: Show NFTs + Required Shares to Withdraw</h3>
+  <p>Enter a vault address to see getAllTokenIds() and nftPositions(tokenId) results.</p>
+  <div>Vault Address: <input id="nftListVault" placeholder="Vault to query" /></div>
+  <button id="btnListNfts">List NFTs in Vault</button>
+  <div id="nftListResult"></div>
+</div>
+
+<script type="module">
+  import { ethers } from "https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.esm.min.js";
+
+  let provider, signer;
+  let factoryAddr, factoryAbi;
+  let vaultAbi;
+  let oracleAddr, oracleAbi;
+  let rebalancerAddr, rebalancerAbi;
+  let liquidatorAddr, liquidatorAbi;
+
+  const NFPM_ABI = [
+    "function safeTransferFrom(address from, address to, uint256 tokenId) external"
+  ];
+  const vaultWithdrawNftAbi = [
+    "function withdrawNFT(uint256 tokenId, address to) external"
+  ];
+  const vaultExtraAbi = [
+    "function getAllTokenIds() external view returns (uint256[] memory)",
+    "function nftPositions(uint256) external view returns (bool exists, uint256 mintedShares, address originalDepositor)"
+  ];
+  const vaultDepositAbi = [
+    "function deposit(uint256,uint256,uint256,uint256,uint256) external"
+  ];
+  const erc20Abi = [
+    "function approve(address spender, uint256 amount) external returns (bool)"
+  ];
+
+  async function loadABIsForChain(chainId) {
+    try {
+      const folderUrl = `./ABI/${chainId}/`;
+      const listingResp = await fetch(folderUrl);
+      const listingHtml = await listingResp.text();
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(listingHtml, "text/html");
+      const anchors = Array.from(doc.querySelectorAll("a"));
+      let jsonFiles = anchors
+        .map(a => a.getAttribute("href"))
+        .filter(href => href && href.endsWith(".json"));
+      let fetchedContracts = [];
+
+      for(const fileName of jsonFiles) {
+        try {
+          const fileUrl = folderUrl + fileName;
+          const resp = await fetch(fileUrl);
+          const data = await resp.json();
+          fetchedContracts.push(data);
+        } catch(e) {
+          console.warn("Skipping file", fileName, e);
+        }
+      }
+
+      let factoryObj = fetchedContracts.find(c => c.name === "VaultFactoryImplementation");
+      if(factoryObj){
+        factoryAddr = factoryObj.address;
+        factoryAbi  = factoryObj.abi;
+      }
+      let vaultObj   = fetchedContracts.find(c => c.name === "VaultImplementation");
+      if(vaultObj){
+        vaultAbi = vaultObj.abi;
+      }
+      let oracleObj  = fetchedContracts.find(c => c.name === "OracleManager");
+      if(oracleObj){
+        oracleAddr = oracleObj.address;
+        oracleAbi  = oracleObj.abi;
+      }
+      let rebalObj   = fetchedContracts.find(c => c.name === "Rebalancer");
+      if(rebalObj){
+        rebalancerAddr = rebalObj.address;
+        rebalancerAbi  = rebalObj.abi;
+      }
+      let liqObj     = fetchedContracts.find(c => c.name === "Liquidator");
+      if(liqObj){
+        liquidatorAddr = liqObj.address;
+        liquidatorAbi  = liqObj.abi;
+      }
+
+      document.getElementById("walletStatus").innerText = 
+        `Loaded all .json files from ./ABI/${chainId}/ (found ${jsonFiles.length} JSONs).`;
+    } catch(err) {
+      console.error("Failed loading ABIs for chain:", chainId, err);
+      alert("Failed to list directory or parse JSON: " + (err.message||err));
+    }
+  }
+
+  function getFactory() {
+    if(!signer) { alert("Connect first"); throw new Error("No signer"); }
+    return new ethers.Contract(factoryAddr, factoryAbi, signer);
+  }
+  function getVault(addr) {
+    const combinedAbi = [...vaultAbi, ...vaultExtraAbi];
+    return new ethers.Contract(addr, combinedAbi, signer);
+  }
+  function getOracle(addr) {
+    return new ethers.Contract(addr, oracleAbi, signer);
+  }
+  function getRebalancer(addr) {
+    return new ethers.Contract(addr, rebalancerAbi, signer);
+  }
+  function getLiquidator(addr) {
+    return new ethers.Contract(addr, liquidatorAbi, signer);
+  }
+
+  const connectBtn = document.getElementById("connectBtn");
+  connectBtn.onclick = async () => {
+    try {
+      if(!window.ethereum){
+        alert("MetaMask not found");
+        return;
+      }
+      await window.ethereum.request({ method: "eth_requestAccounts" });
+      provider = new ethers.providers.Web3Provider(window.ethereum);
+      signer = provider.getSigner();
+      const userAddress = await signer.getAddress();
+      document.getElementById("walletStatus").innerText = "Wallet connected: " + userAddress;
+      const network = await provider.getNetwork();
+      document.getElementById("chainInfo").innerText = "Chain ID = " + network.chainId;
+      await loadABIsForChain(network.chainId);
+    } catch(err){
+      console.error(err);
+      document.getElementById("walletStatus").innerText = "Connection failed: " + err.message;
+    }
+  };
+
+  const createVaultBtn = document.getElementById("createVaultBtn");
+  createVaultBtn.onclick = async () => {
+    try {
+      const factory = getFactory();
+      const v3PoolVal = document.getElementById("v3PoolInput").value.trim();
+      const posMgrVal = document.getElementById("posMgrInput").value.trim();
+      if(!v3PoolVal || !posMgrVal){
+        alert("Must provide v3Pool and posMgr addresses");
+        return;
+      }
+      let oracleVal = document.getElementById("oracleInput").value.trim();
+      let rebalVal  = document.getElementById("rebalInput").value.trim();
+      let liqVal    = document.getElementById("liqInput").value.trim();
+      if(!oracleVal) oracleVal=oracleAddr;
+      if(!rebalVal)  rebalVal=rebalancerAddr;
+      if(!liqVal)    liqVal=liquidatorAddr;
+      if(oracleVal==="0x0" || rebalVal==="0x0" || liqVal==="0x0"){
+        alert("Cannot pass 0x0 references.");
+        return;
+      }
+      const nameVal = document.getElementById("vaultName").value.trim();
+      const symVal  = document.getElementById("vaultSymbol").value.trim();
+      let tx = await factory.createVault(
+        v3PoolVal,
+        posMgrVal,
+        oracleVal,
+        rebalVal,
+        liqVal,
+        nameVal,
+        symVal,
+        { gasLimit: 6000000 }
+      );
+      let rc = await tx.wait();
+      document.getElementById("createStatus").innerText =
+        "Vault created in tx: "+ rc.transactionHash +", status: "+ rc.status;
+    } catch(err){
+      console.error(err);
+      document.getElementById("createStatus").innerText =
+        "CreateVault error: "+ (err.reason || err.message);
+    }
+  };
+
+  const btnSetOracleConfig = document.getElementById("btnSetOracleConfig");
+  const oracleConfigStatus = document.getElementById("oracleConfigStatus");
+  btnSetOracleConfig.onclick = async()=>{
+    try{
+      if(!signer){ alert("Connect first"); return; }
+      const oracleC = getOracle(oracleAddr);
+      const tokenAddr = document.getElementById("oracleCfgToken").value.trim();
+      const primary = document.getElementById("oracleCfgPrimary").value.trim();
+      const fallbackAgg = document.getElementById("oracleCfgFallback").value.trim();
+      const useFallbackStr = document.getElementById("oracleCfgUseFallback").value;
+      const decimalsOver = document.getElementById("oracleCfgDecimals").value.trim();
+      const isVaultStr = document.getElementById("oracleCfgIsVaultToken").value;
+      const useFall = (useFallbackStr==="true");
+      const isVault = (isVaultStr==="true");
+      const decimalsOvr = parseInt(decimalsOver,10);
+      let tx = await oracleC.setOracleConfig(
+        tokenAddr,
+        primary || ethers.constants.AddressZero,
+        fallbackAgg || ethers.constants.AddressZero,
+        useFall,
+        decimalsOvr,
+        isVault
+      );
+      await tx.wait();
+      oracleConfigStatus.innerText = "setOracleConfig success!";
+    }catch(err){
+      console.error(err);
+      oracleConfigStatus.innerText = "Error: " + (err.reason || err.message);
+    }
+  };
+
+  const btnSetVaultFeeds = document.getElementById("btnSetVaultFeeds");
+  const vaultFeedsStatus= document.getElementById("vaultFeedsStatus");
+  btnSetVaultFeeds.onclick=async()=>{
+    try{
+      const oracleC = getOracle(oracleAddr);
+      const vToken  = document.getElementById("vaultFeedsVault").value.trim();
+      const t0Agg   = document.getElementById("vaultFeedsT0Agg").value.trim();
+      const t1Agg   = document.getElementById("vaultFeedsT1Agg").value.trim();
+      const t0Dec   = document.getElementById("vaultFeedsT0Dec").value.trim();
+      const t1Dec   = document.getElementById("vaultFeedsT1Dec").value.trim();
+      let tx = await oracleC.setVaultUnderlyingFeeds(
+        vToken,
+        t0Agg,
+        t1Agg,
+        parseInt(t0Dec,10),
+        parseInt(t1Dec,10)
+      );
+      await tx.wait();
+      vaultFeedsStatus.innerText = "setVaultUnderlyingFeeds success!";
+    }catch(err){
+      console.error(err);
+      vaultFeedsStatus.innerText = "Error: " + (err.reason || err.message);
+    }
+  };
+
+  const btnRebalancerSetOracle = document.getElementById("btnRebalancerSetOracle");
+  const btnRebalancerSetBounds = document.getElementById("btnRebalancerSetBounds");
+  const rebalancerStatus       = document.getElementById("rebalancerStatus");
+
+  btnRebalancerSetOracle.onclick=async()=>{
+    try{
+      if(!signer){alert("Connect first");return;}
+      const rebAddr = document.getElementById("rebalancerAddress").value.trim();
+      const newOracle = document.getElementById("rebalancerNewOracle").value.trim();
+      if(!rebAddr){
+        alert("No Rebalancer address given");
+        return;
+      }
+      const rC = getRebalancer(rebAddr);
+      let tx = await rC.setOracleManager(newOracle);
+      await tx.wait();
+      rebalancerStatus.innerText = "setOracleManager done!";
+    } catch(err){
+      console.error(err);
+      rebalancerStatus.innerText = "Error: "+ (err.reason||err.message);
+    }
+  };
+
+  btnRebalancerSetBounds.onclick=async()=>{
+    try{
+      if(!signer){alert("Connect first");return;}
+      const rebAddr = document.getElementById("rebalancerAddress").value.trim();
+      const minPrice= document.getElementById("rebalancerMinPrice").value.trim();
+      const maxPrice= document.getElementById("rebalancerMaxPrice").value.trim();
+      const rC      = getRebalancer(rebAddr);
+      let tx = await rC.setPriceBounds(minPrice, maxPrice);
+      await tx.wait();
+      rebalancerStatus.innerText= "setPriceBounds done!";
+    } catch(err){
+      console.error(err);
+      rebalancerStatus.innerText = "Error: "+(err.reason||err.message);
+    }
+  };
+
+  const btnLiqSetAll = document.getElementById("btnLiqSetAll");
+  const liquidatorStatus = document.getElementById("liquidatorStatus");
+  btnLiqSetAll.onclick=async()=>{
+    try{
+      if(!signer){alert("Connect first");return;}
+      const liqAddr=document.getElementById("liquidatorAddress").value.trim();
+      if(!liqAddr){alert("No Liquidator address");return;}
+      const liqMin  = document.getElementById("liqMinColl").value.trim();
+      const liqFee  = document.getElementById("liqFeeBps").value.trim();
+      const liqMax  = document.getElementById("liqMaxBps").value.trim();
+      const L=getLiquidator(liqAddr);
+      let tx1=await L.setMinCollateralValue(liqMin);
+      await tx1.wait();
+      let tx2=await L.setLiquidationFeeBps(liqFee);
+      await tx2.wait();
+      let tx3=await L.setMaxLiquidationBps(liqMax);
+      await tx3.wait();
+      liquidatorStatus.innerText="Liquidator config set!";
+    }catch(err){
+      console.error(err);
+      liquidatorStatus.innerText= "Error: "+(err.reason||err.message);
+    }
+  };
+
+  const listVaultsBtn = document.getElementById("listVaultsBtn");
+  const allVaultsDiv  = document.getElementById("allVaults");
+  const vaultSelect   = document.getElementById("vaultSelect");
+  let knownVaults=[];
+
+  listVaultsBtn.onclick=async()=>{
+    try{
+      const factory = getFactory();
+      let vaults    = await factory.getAllVaults();
+      knownVaults   = vaults;
+      allVaultsDiv.innerText=vaults.join("\n");
+      vaultSelect.innerHTML="";
+      vaults.forEach((v, i)=>{
+        const opt = document.createElement("option");
+        opt.value = v;
+        opt.text  = `${i}. ${v}`;
+        vaultSelect.appendChild(opt);
+      });
+      if(vaults.length===0){
+        vaultSelect.innerHTML="<option>No vaults found</option>";
+      }
+    }catch(err){
+      console.error(err);
+      allVaultsDiv.innerText="Error reading vaults: " + (err.reason || err.message);
+    }
+  };
+
+  const inspectVaultBtn = document.getElementById("inspectVaultBtn");
+  const vaultInfoDiv    = document.getElementById("vaultInfo");
+  let currentVaultAddr=null;
+  inspectVaultBtn.onclick=async()=>{
+    try{
+      if(!signer){alert("Connect first");return;}
+      currentVaultAddr=vaultSelect.value;
+      if(!currentVaultAddr || currentVaultAddr==="No vaults found"){
+        alert("Pick a valid vault");
+        return;
+      }
+      const vaultC = getVault(currentVaultAddr);
+      const [ownerAddr, supplyBN] = await Promise.all([
+        vaultC.owner(),
+        vaultC.totalSupply()
+      ]);
+      const supplyStr = supplyBN.toString();
+      let info= `<p>Vault: ${currentVaultAddr}</p>`;
+      info+= `<p>Owner: ${ownerAddr}</p>`;
+      info+= `<p>Total Supply: ${supplyStr}</p>`;
+      vaultInfoDiv.innerHTML=info;
+    } catch(err){
+      console.error(err);
+      vaultInfoDiv.innerHTML="Inspect error: " + (err.reason || err.message);
+    }
+  };
+
+  const btnGetPrice   = document.getElementById("btnGetPrice");
+  const priceResult   = document.getElementById("priceResult");
+  btnGetPrice.onclick=async()=>{
+    try{
+      if(!currentVaultAddr){
+        alert("Select/inspect a vault first");
+        return;
+      }
+      const vaultC = getVault(currentVaultAddr);
+      const vOracle= await vaultC.oracleManager();
+      if(!vOracle || vOracle===ethers.constants.AddressZero){
+        alert("No valid Oracle address");
+        return;
+      }
+      const oracleC = getOracle(vOracle);
+      const [p, dec]= await oracleC.getPrice(currentVaultAddr);
+      priceResult.innerText = `Price= ${p.toString()}, decimals=${dec}`;
+    }catch(err){
+      console.error(err);
+      priceResult.innerText = "Price error: " + (err.reason||err.message);
+    }
+  };
+
+  const btnRebalance      = document.getElementById("btnRebalance");
+  const rebalanceDataInput= document.getElementById("rebalanceData");
+  const rebalanceStatus   = document.getElementById("rebalanceStatus");
+  btnRebalance.onclick=async()=>{
+    try{
+      if(!currentVaultAddr){
+        alert("Select a vault first");
+        return;
+      }
+      const vaultC = getVault(currentVaultAddr);
+      const dataHex= rebalanceDataInput.value.trim() || "0x";
+      let tx=await vaultC.rebalanceVault(dataHex, {gasLimit:2000000});
+      let rc=await tx.wait();
+      rebalanceStatus.innerText =
+        `Rebalance tx=${rc.transactionHash}, status=${rc.status}`;
+    }catch(err){
+      console.error(err);
+      rebalanceStatus.innerText =
+        "Rebalance error: " + (err.reason||err.message);
+    }
+  };
+
+  const btnLiquidate       = document.getElementById("btnLiquidate");
+  const liquidateUserInput = document.getElementById("liquidateUser");
+  const liquidateDataInput = document.getElementById("liquidateData");
+  const liquidateStatus    = document.getElementById("liquidateStatus");
+  btnLiquidate.onclick=async()=>{
+    try{
+      if(!currentVaultAddr){
+        alert("Select a vault first");
+        return;
+      }
+      const vaultC = getVault(currentVaultAddr);
+      const userAddr=liquidateUserInput.value.trim();
+      if(!userAddr){
+        alert("missing user address");
+        return;
+      }
+      const dataHex=liquidateDataInput.value.trim()||"0x";
+      let tx= await vaultC.liquidatePosition(userAddr, dataHex, {gasLimit:2000000});
+      let rc= await tx.wait();
+      liquidateStatus.innerText =
+        `Liquidate tx=${rc.transactionHash}, status=${rc.status}`;
+    }catch(err){
+      console.error(err);
+      liquidateStatus.innerText =
+        "Liquidate error: " + (err.reason||err.message);
+    }
+  };
+
+  const btnDepositNft    = document.getElementById("btnDepositNft");
+  const depositNftStatus = document.getElementById("depositNftStatus");
+  btnDepositNft.onclick=async()=>{
+    try{
+      if(!signer){ alert("Connect first"); return; }
+      const posMgrAddr = document.getElementById("nftPosMgr").value.trim();
+      const tokenId    = document.getElementById("nftTokenId").value.trim();
+      const vaultAddr  = document.getElementById("nftVaultAddr").value.trim();
+      if(!posMgrAddr||!tokenId||!vaultAddr){
+        alert("Need NFPM, tokenId, vaultAddr");
+        return;
+      }
+      const pmC=new ethers.Contract(posMgrAddr, NFPM_ABI, signer);
+      const userAddr= await signer.getAddress();
+      let tx=await pmC["safeTransferFrom(address,address,uint256)"](
+        userAddr,
+        vaultAddr,
+        tokenId,
+        { gasLimit:500000 }
+      );
+      let rc=await tx.wait();
+      depositNftStatus.innerText= `Deposit NFT #${tokenId} => vault tx=${rc.transactionHash}, status=${rc.status}`;
+    }catch(err){
+      console.error(err);
+      depositNftStatus.innerText= "Deposit NFT error: "+(err.reason||err.message);
+    }
+  };
+
+  const btnWithdrawNft     = document.getElementById("btnWithdrawNft");
+  const withdrawNftStatus  = document.getElementById("withdrawNftStatus");
+  btnWithdrawNft.onclick=async()=>{
+    try{
+      if(!signer){alert("Connect first");return;}
+      const vaultAddr  = document.getElementById("nftWithdrawVault").value.trim();
+      const recipient  = document.getElementById("nftWithdrawRecipient").value.trim();
+      const tokenIdVal = document.getElementById("nftWithdrawTokenId").value.trim();
+      if(!vaultAddr||!recipient||!tokenIdVal){
+        alert("Vault, recipient, or tokenId missing");
+        return;
+      }
+      const vaultC=new ethers.Contract(
+        vaultAddr, 
+        [...vaultAbi, ...vaultExtraAbi, ...vaultWithdrawNftAbi], 
+        signer
+      );
+      let tx=await vaultC.withdrawNFT(
+        tokenIdVal,
+        recipient,
+        {gasLimit:500000}
+      );
+      let rc=await tx.wait();
+      withdrawNftStatus.innerText=
+        `Withdraw NFT tokenId=${tokenIdVal} => ${recipient} tx=${rc.transactionHash}, status=${rc.status}`;
+    }catch(err){
+      console.error(err);
+      withdrawNftStatus.innerText= "Withdraw NFT error: "+(err.reason||err.message);
+    }
+  };
+
+  const approveTokensBtn = document.getElementById("approveTokensBtn");
+  const depositBtn       = document.getElementById("depositBtn");
+  const depositStatus    = document.getElementById("depositStatus");
+
+  approveTokensBtn.onclick=async()=>{
+    try{
+      if(!signer){alert("Connect first");return;}
+      const tok0=document.getElementById("token0Address").value.trim();
+      const tok1=document.getElementById("token1Address").value.trim();
+      const amt0=document.getElementById("amount0").value.trim();
+      const amt1=document.getElementById("amount1").value.trim();
+      if(!tok0||!tok1){
+        alert("Provide token addresses");
+        return;
+      }
+      const vaultAddr=document.getElementById("targetVault").value.trim();
+      if(!vaultAddr){
+        alert("No vault address to read NFPM from");
+        return;
+      }
+      const vaultC   = new ethers.Contract(vaultAddr, [...vaultAbi, ...vaultExtraAbi], signer);
+      const posMgrAddress= await vaultC.positionManager();
+      const c0=new ethers.Contract(tok0, erc20Abi, signer);
+      const c1=new ethers.Contract(tok1, erc20Abi, signer);
+      let tx0=await c0.approve(posMgrAddress, amt0);
+      await tx0.wait();
+      let tx1=await c1.approve(posMgrAddress, amt1);
+      await tx1.wait();
+      alert("Approvals done!");
+    }catch(err){
+      console.error(err);
+      alert("Approval error: "+(err.reason||err.message));
+    }
+  };
+
+  depositBtn.onclick=async()=>{
+    try{
+      if(!signer){alert("Connect first");return;}
+      const vaultAddr=document.getElementById("targetVault").value.trim();
+      if(!vaultAddr){alert("No vault address provided");return;}
+      const amt0=document.getElementById("amount0").value.trim();
+      const amt1=document.getElementById("amount1").value.trim();
+      const dl=Math.floor(Date.now()/1000)+600;
+      const vaultC=new ethers.Contract(
+        vaultAddr, 
+        [...vaultAbi, ...vaultExtraAbi, ...vaultDepositAbi], 
+        signer
+      );
+      let tx=await vaultC.deposit(amt0, amt1, "0", "0", dl, {gasLimit:2000000});
+      let rc=await tx.wait();
+      depositStatus.innerText= `Deposit tx=${rc.transactionHash}, status=${rc.status}`;
+    }catch(err){
+      console.error(err);
+      depositStatus.innerText= "Deposit error: "+(err.reason||err.message);
+    }
+  };
+
+  const btnListNfts = document.getElementById("btnListNfts");
+  const nftListVaultInput = document.getElementById("nftListVault");
+  const nftListResultDiv = document.getElementById("nftListResult");
+  btnListNfts.onclick = async()=>{
+    try{
+      if(!signer){alert("Connect first");return;}
+      const vaultAddr = nftListVaultInput.value.trim();
+      if(!vaultAddr){alert("No vault address provided");return;}
+      const combinedVaultAbi = [...vaultAbi, ...vaultExtraAbi];
+      const vaultC = new ethers.Contract(vaultAddr, combinedVaultAbi, signer);
+      let tokenIds = await vaultC.getAllTokenIds();
+      if(tokenIds.length===0){
+        nftListResultDiv.innerHTML = "<p>No NFTs in this vault.</p>";
+        return;
+      }
+      let html = `<table>
+        <thead>
+          <tr>
+            <th>tokenId</th>
+            <th>mintedShares</th>
+            <th>originalDepositor</th>
+            <th>exists</th>
+          </tr>
+        </thead>
+        <tbody>
+      `;
+      for(let i=0; i<tokenIds.length; i++){
+        let tid = tokenIds[i].toString();
+        let pos = await vaultC.nftPositions(tid);
+        html += `<tr>
+          <td>${tid}</td>
+          <td>${pos.mintedShares.toString()}</td>
+          <td>${pos.originalDepositor}</td>
+          <td>${pos.exists}</td>
+        </tr>`;
+      }
+      html += "</tbody></table>";
+      nftListResultDiv.innerHTML = html;
+    }catch(err){
+      console.error(err);
+      nftListResultDiv.innerHTML= "Error: " + (err.reason||err.message);
+    }
+  };
+</script>
+</body>
+</html>
