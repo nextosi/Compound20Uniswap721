@@ -5,18 +5,14 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol";
 import { OracleManager as OracleMgr } from "./OracleManager.sol";
 
+/**
+ * @dev Minimal interface for a Vault that the Rebalancer interacts with.
+ */
 interface IMultiNftVaultRebalance {
-
-    function vaultPositionTokenId() external view returns (uint256); 
-    
-
+    function vaultPositionTokenId() external view returns (uint256);
     function positionManager() external view returns (address);
-
     function getUnderlyingPrice() external view returns (uint256 price, uint8 decimals);
-
- 
     function rebalancerMintShares(uint256 extraValue, address to) external;
-
 }
 
 /**
@@ -24,6 +20,9 @@ interface IMultiNftVaultRebalance {
  * @notice Rebalances a Uniswap V3 position for a Vault by removing/adding liquidity,
  *         optionally checking an OracleManager for price constraints, 
  *         and providing an “auto-compounding” feature that can mint shares.
+ *
+ *         The code here is split into smaller internal helpers to avoid 
+ *         'Stack Too Deep' errors in Solidity 0.8.x.
  */
 contract Rebalancer is Ownable {
     OracleMgr public oracleManager;
@@ -31,9 +30,7 @@ contract Rebalancer is Ownable {
     uint256 public minPriceAllowed;
     uint256 public maxPriceAllowed;
 
-    // If we want a default autoCompound setting or a ratio:
-    bool public defaultAutoCompound; 
-    // Or you might store a ratio, e.g. 100% of fees are auto-added, etc.
+    bool public defaultAutoCompound;
 
     event RebalancePerformed(
         address indexed vault,
@@ -43,7 +40,7 @@ contract Rebalancer is Ownable {
         uint256 amount0Added,
         uint256 amount1Added,
         bool autoCompounded,
-        uint256 mintedShares // if any
+        uint256 mintedShares
     );
 
     event PriceBoundsUpdated(uint256 minPrice, uint256 maxPrice);
@@ -58,13 +55,14 @@ contract Rebalancer is Ownable {
         require(_oracleManager != address(0), "Rebalancer: invalid oracle");
         require(_minPrice <= _maxPrice, "Rebalancer: minPrice>maxPrice");
 
-        oracleManager = OracleMgr(_oracleManager);
-        minPriceAllowed = _minPrice;
-        maxPriceAllowed = _maxPrice;
+        oracleManager     = OracleMgr(_oracleManager);
+        minPriceAllowed   = _minPrice;
+        maxPriceAllowed   = _maxPrice;
 
         emit PriceBoundsUpdated(_minPrice, _maxPrice);
     }
 
+    // ------------------ Owner Setters ------------------
     function setPriceBounds(uint256 newMin, uint256 newMax) external onlyOwner {
         require(newMin <= newMax, "Rebalancer: minPrice>maxPrice");
         minPriceAllowed = newMin;
@@ -81,9 +79,9 @@ contract Rebalancer is Ownable {
         defaultAutoCompound = autoCompound;
     }
 
+    // ------------------ Data Structures ------------------
     /**
-     * @dev The arguments decoded from `rebalance(...) data`.
-     *      We add `autoCompound` plus an optional `extraValueForCompounding`.
+     * @dev The arguments we decode from `rebalance(...) data`.
      */
     struct ExtendedRebalanceArgs {
         uint128 liquidityToRemove;
@@ -92,13 +90,30 @@ contract Rebalancer is Ownable {
         uint256 amount0DesiredAdd;
         uint256 amount1DesiredAdd;
         uint256 deadline;
-        bool autoCompound;              // if true, we auto-collect fees and optionally call vault to mint shares
-        uint256 extraValueForCompounding; // if we want to deposit new tokens or handle a certain extra amount
+        bool autoCompound;              
+        uint256 extraValueForCompounding;
     }
 
+   
+    struct RebalanceLocalVars {
+        address posMgr;
+        uint256 tokenId;
+        uint128 currentLiquidity;
+        uint256 amt0Removed;
+        uint256 amt1Removed;
+        uint256 collect0;
+        uint256 collect1;
+        uint128 newLiquidity;
+        uint256 amt0Added;
+        uint256 amt1Added;
+        bool doAuto;
+        uint256 minted;
+    }
+
+    // ------------------ External Entry ------------------
     /**
-     * @notice Rebalances the position by removing liquidity, collecting tokens, optionally adding more.
-     *         Also can auto-claim any fees and call `rebalancerMintShares(...)` on the vault to produce new shares.
+     * @notice Rebalances the position by removing liquidity, collecting tokens, optionally adding more,
+     *         and optionally auto-compounding (minting shares).
      *
      * @param vault The address of the vault implementing IMultiNftVaultRebalance
      * @param data  The ABI-encoded ExtendedRebalanceArgs
@@ -106,77 +121,80 @@ contract Rebalancer is Ownable {
     function rebalance(address vault, bytes calldata data) external onlyOwner {
         require(vault != address(0), "Rebalancer: invalid vault");
 
-        // decode
-        ExtendedRebalanceArgs memory args = _decodeArgs(data);
+        RebalanceLocalVars memory v = _rebalanceInternal(vault, data);
 
-        IMultiNftVaultRebalance vaultInterface = IMultiNftVaultRebalance(vault);
-
-        uint256 tokenId = vaultInterface.vaultPositionTokenId(); 
-
-        // step 1: optional price checks
-        _checkPriceConstraints(vaultInterface);
-
-        // step 2: fetch current liquidity from the NFPM
-        address posMgr = vaultInterface.positionManager();
-        require(posMgr != address(0), "Rebalancer: invalid posMgr");
-        uint128 currentLiquidity = _fetchLiquidity(posMgr, tokenId);
-        require(currentLiquidity >= args.liquidityToRemove, "Not enough liquidity");
-
-        // step 3: remove liquidity
-        (uint256 amt0Removed, uint256 amt1Removed) = _removeLiquidity(
-            posMgr,
-            tokenId,
-            args
-        );
-
-        // step 4: collect tokens (fees + the portion from remove) 
-        //         so that the vault has them available
-        (uint256 collect0, uint256 collect1) = _collectAll(posMgr, vault, tokenId);
-
-        // step 5: optionally add more liquidity
-        uint128 newLiquidity;
-        uint256 amt0Added;
-        uint256 amt1Added;
-
-        if (args.amount0DesiredAdd > 0 || args.amount1DesiredAdd > 0) {
-            (newLiquidity, amt0Added, amt1Added) = _addLiquidity(posMgr, tokenId, args);
-        }
-
-        // step 6: auto-compound?
-        bool doAuto = args.autoCompound || defaultAutoCompound;
-        uint256 minted = 0;
-        if (doAuto) {
-            // If your vault supports a method for the rebalancer to call 
-            // e.g. `rebalancerMintShares(...)` to handle any extra tokens or 
-            // deposit them as an auto-compound. 
-            // This logic is up to you. Example:
-            if (args.extraValueForCompounding > 0) {
-                // calls the vault’s method to mint new shares
-                // The vault must have an exposed function like:
-                //   function rebalancerMintShares(uint256 extraValue, address to) external;
-                //   require(msg.sender == address(rebalancer));
-                vaultInterface.rebalancerMintShares(args.extraValueForCompounding, owner());
-                minted = args.extraValueForCompounding; // or the actual minted share count
-            }
-            // If you want the rebalancer to also add the newly collected fees into the vault’s 
-            
-        }
 
         emit RebalancePerformed(
             vault,
-            tokenId,
-            amt0Removed,
-            amt1Removed,
-            amt0Added,
-            amt1Added,
-            doAuto,
-            minted
+            v.tokenId,
+            v.amt0Removed,
+            v.amt1Removed,
+            v.amt0Added,
+            v.amt1Added,
+            v.doAuto,
+            v.minted
         );
     }
 
-    // ---------------------------------------------------------------------
-    // INTERNAL / PRIVATE HELPERS
-    // ---------------------------------------------------------------------
+    // ------------------ Internal Rebalance Logic ------------------
+    /**
+     * @dev Splits the rebalance logic into a separate internal function that returns
+     *      a struct. 
+     */
+    function _rebalanceInternal(address vault, bytes calldata data)
+        private
+        returns (RebalanceLocalVars memory v)
+    {
+        // 1) decode arguments
+        ExtendedRebalanceArgs memory args = _decodeArgs(data);
+
+        // 2) get the vault interface
+        IMultiNftVaultRebalance vaultInterface = IMultiNftVaultRebalance(vault);
+        v.tokenId = vaultInterface.vaultPositionTokenId();
+        v.posMgr  = vaultInterface.positionManager();
+
+        // 3) optional price checks
+        _checkPriceConstraints(vaultInterface);
+
+        // 4) fetch current liquidity
+        v.currentLiquidity = _fetchLiquidity(v.posMgr, v.tokenId);
+        require(v.currentLiquidity >= args.liquidityToRemove, "Not enough liquidity");
+
+        // 5) remove liquidity
+        (v.amt0Removed, v.amt1Removed) = _removeLiquidity(
+            v.posMgr,
+            v.tokenId,
+            args.liquidityToRemove,
+            args.amount0MinRemove,
+            args.amount1MinRemove,
+            args.deadline
+        );
+
+        // 6) collect tokens
+        (v.collect0, v.collect1) = _collectAll(v.posMgr, vault, v.tokenId);
+
+        // 7) optionally add more liquidity
+        if (args.amount0DesiredAdd > 0 || args.amount1DesiredAdd > 0) {
+            (v.newLiquidity, v.amt0Added, v.amt1Added) = _addLiquidity(
+                v.posMgr,
+                v.tokenId,
+                args.amount0DesiredAdd,
+                args.amount1DesiredAdd,
+                args.deadline
+            );
+        }
+
+        // 8) auto-compound?
+        v.doAuto = (args.autoCompound || defaultAutoCompound);
+        if (v.doAuto && args.extraValueForCompounding > 0) {
+            vaultInterface.rebalancerMintShares(args.extraValueForCompounding, owner());
+            v.minted = args.extraValueForCompounding; 
+        }
+
+        return v;
+    }
+
+    // ------------------ Internal Helpers ------------------
     function _decodeArgs(bytes calldata data) private pure returns (ExtendedRebalanceArgs memory a) {
         (
             a.liquidityToRemove,
@@ -200,7 +218,11 @@ contract Rebalancer is Ownable {
         }
     }
 
-    function _fetchLiquidity(address posMgr, uint256 tokenId) private view returns (uint128 liquidity) {
+    function _fetchLiquidity(address posMgr, uint256 tokenId)
+        private
+        view
+        returns (uint128 liquidity)
+    {
         (bool success, bytes memory result) = posMgr.staticcall(
             abi.encodeWithSelector(INonfungiblePositionManager.positions.selector, tokenId)
         );
@@ -214,7 +236,7 @@ contract Rebalancer is Ownable {
             ,
             ,
             ,
-            liquidity,
+            liquidity, // we only read out 'liquidity' from the tuple
             ,
             ,
             ,
@@ -240,21 +262,24 @@ contract Rebalancer is Ownable {
     function _removeLiquidity(
         address posMgr,
         uint256 tokenId,
-        ExtendedRebalanceArgs memory args
+        uint128 liquidityToRemove,
+        uint256 amount0MinRemove,
+        uint256 amount1MinRemove,
+        uint256 deadline
     )
         private
         returns (uint256 amount0, uint256 amount1)
     {
-        if (args.liquidityToRemove == 0) {
+        if (liquidityToRemove == 0) {
             return (0, 0);
         }
         INonfungiblePositionManager.DecreaseLiquidityParams memory p =
             INonfungiblePositionManager.DecreaseLiquidityParams({
                 tokenId: tokenId,
-                liquidity: args.liquidityToRemove,
-                amount0Min: args.amount0MinRemove,
-                amount1Min: args.amount1MinRemove,
-                deadline: args.deadline
+                liquidity: liquidityToRemove,
+                amount0Min: amount0MinRemove,
+                amount1Min: amount1MinRemove,
+                deadline: deadline
             });
 
         (amount0, amount1) = INonfungiblePositionManager(posMgr).decreaseLiquidity(p);
@@ -277,7 +302,9 @@ contract Rebalancer is Ownable {
     function _addLiquidity(
         address posMgr,
         uint256 tokenId,
-        ExtendedRebalanceArgs memory args
+        uint256 amount0DesiredAdd,
+        uint256 amount1DesiredAdd,
+        uint256 deadline
     )
         private
         returns (uint128 liquidity, uint256 used0, uint256 used1)
@@ -285,11 +312,11 @@ contract Rebalancer is Ownable {
         INonfungiblePositionManager.IncreaseLiquidityParams memory p =
             INonfungiblePositionManager.IncreaseLiquidityParams({
                 tokenId: tokenId,
-                amount0Desired: args.amount0DesiredAdd,
-                amount1Desired: args.amount1DesiredAdd,
-                amount0Min: 0, // or pass from args
-                amount1Min: 0, // or pass from args
-                deadline: args.deadline
+                amount0Desired: amount0DesiredAdd,
+                amount1Desired: amount1DesiredAdd,
+                amount0Min: 0,  // could pass from arguments if needed
+                amount1Min: 0,  // could pass from arguments if needed
+                deadline: deadline
             });
 
         (liquidity, used0, used1) = INonfungiblePositionManager(posMgr).increaseLiquidity(p);
