@@ -1,0 +1,329 @@
+{
+  "name": "OracleManager",
+  "address": "0xc5a9a4ede5fda12d48c926c5eab6131a106f7122",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "initialOwner",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "inputs": [],
+      "name": "T",
+      "type": "error"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "token",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "primaryAggregator",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "fallbackAggregator",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "bool",
+          "name": "useFallbackIfError",
+          "type": "bool"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint8",
+          "name": "decimalsOverride",
+          "type": "uint8"
+        },
+        {
+          "indexed": false,
+          "internalType": "bool",
+          "name": "isVaultToken",
+          "type": "bool"
+        }
+      ],
+      "name": "OracleConfigUpdated",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "previousOwner",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "newOwner",
+          "type": "address"
+        }
+      ],
+      "name": "OwnershipTransferred",
+      "type": "event"
+    },
+    {
+      "inputs": [],
+      "name": "renounceOwnership",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "token",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "primaryAggregator",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "fallbackAggregator",
+          "type": "address"
+        },
+        {
+          "internalType": "bool",
+          "name": "useFallbackIfErr",
+          "type": "bool"
+        },
+        {
+          "internalType": "uint8",
+          "name": "decimalsOvr",
+          "type": "uint8"
+        },
+        {
+          "internalType": "bool",
+          "name": "isVaultToken",
+          "type": "bool"
+        }
+      ],
+      "name": "setOracleConfig",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "vaultToken",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "token0Agg",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "token1Agg",
+          "type": "address"
+        },
+        {
+          "internalType": "uint8",
+          "name": "token0Dec",
+          "type": "uint8"
+        },
+        {
+          "internalType": "uint8",
+          "name": "token1Dec",
+          "type": "uint8"
+        }
+      ],
+      "name": "setVaultUnderlyingFeeds",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "newOwner",
+          "type": "address"
+        }
+      ],
+      "name": "transferOwnership",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "vaultToken",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "token0Aggregator",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "token1Aggregator",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint8",
+          "name": "token0Decimals",
+          "type": "uint8"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint8",
+          "name": "token1Decimals",
+          "type": "uint8"
+        }
+      ],
+      "name": "VaultUnderlyingFeedsUpdated",
+      "type": "event"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "token",
+          "type": "address"
+        }
+      ],
+      "name": "getPrice",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "price",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint8",
+          "name": "decimals",
+          "type": "uint8"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "name": "oracleConfigs",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "primaryAggregator",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "fallbackAggregator",
+          "type": "address"
+        },
+        {
+          "internalType": "bool",
+          "name": "useFallbackIfError",
+          "type": "bool"
+        },
+        {
+          "internalType": "uint8",
+          "name": "decimalsOverride",
+          "type": "uint8"
+        },
+        {
+          "internalType": "bool",
+          "name": "isVaultToken",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "owner",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "name": "vaultFeeds",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "token0Aggregator",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "token1Aggregator",
+          "type": "address"
+        },
+        {
+          "internalType": "uint8",
+          "name": "token0Decimals",
+          "type": "uint8"
+        },
+        {
+          "internalType": "uint8",
+          "name": "token1Decimals",
+          "type": "uint8"
+        },
+        {
+          "internalType": "bool",
+          "name": "exists",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "filePath": "UniComp/Contracts/OracleManager.sol",
+  "pinnedAt": 1736471269597
+}
