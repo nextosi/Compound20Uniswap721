@@ -1,77 +1,31 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
-
-/* ------------------ Local TickMath for 0.8.x ------------------ */
-/**
- * This is a simplified version of Uniswap's TickMath adjusted for Solidity 0.8.x:
- * - We do safe casting from int24 to uint256 where needed
- * - We re-check tick ranges with `require()`
- */
+/* ------------------------------------------------------------------
+ * 1) TickMathLocal
+ * A local patch of the Uniswap V3 TickMath that avoids explicit 
+ * int24->uint256 conversion warnings on Solidity 0.8.x
+ * ------------------------------------------------------------------ */
 library TickMathLocal {
     int24 internal constant MIN_TICK = -887272;
-    int24 internal constant MAX_TICK =  887272; // note: was -MIN_TICK in uniswap
+    int24 internal constant MAX_TICK =  887272;
 
     function getSqrtRatioAtTick(int24 tick) internal pure returns (uint160 sqrtPriceX96) {
         require(tick >= MIN_TICK && tick <= MAX_TICK, "Tick out of range");
 
-        // Original Uniswap logic used an unchecked block + 0.7.x casting
-        // We replicate that logic but do some safe casting for 0.8.x
-        uint256 absTick = tick < 0
+        // Convert to absolute safely
+        uint256 absTick = (tick < 0)
             ? uint256(uint24(uint24(-tick)))
             : uint256(uint24(uint24(tick)));
 
-        // This is the Uniswap ratio initialization
+        // This ratio logic is the same as Uniswap’s approach
         uint256 ratio = 0x100000000000000000000000000000000; // 1 << 128
 
-        // Reproducing the multiplication pattern
-        if (absTick & 0x1 != 0)
-            ratio = (ratio * 0xfffcb933bd6fad37aa2d162d1a594001) >> 128;
-        if (absTick & 0x2 != 0)
-            ratio = (ratio * 0xfff97272373d413259a46990580e213a) >> 128;
-        if (absTick & 0x4 != 0)
-            ratio = (ratio * 0xfff2e50f5f656932ef12357cf3c7fdcc) >> 128;
-        if (absTick & 0x8 != 0)
-            ratio = (ratio * 0xffe5caca7e10e4e61c3624eaa0941cd0) >> 128;
-        if (absTick & 0x10 != 0)
-            ratio = (ratio * 0xffcb9843d60f6159c9db58835c926644) >> 128;
-        if (absTick & 0x20 != 0)
-            ratio = (ratio * 0xff973b41fa98c081472e6896dfb254c0) >> 128;
-        if (absTick & 0x40 != 0)
-            ratio = (ratio * 0xff2ea16466c96a3843ec78b326b52861) >> 128;
-        if (absTick & 0x80 != 0)
-            ratio = (ratio * 0xfe5dee046a99a2a811c461f1969c3053) >> 128;
-        if (absTick & 0x100 != 0)
-            ratio = (ratio * 0xfcbe86c7900a88aedcffc83b479aa3a4) >> 128;
-        if (absTick & 0x200 != 0)
-            ratio = (ratio * 0xf987a7253ac413176f2b074cf7815e54) >> 128;
-        if (absTick & 0x400 != 0)
-            ratio = (ratio * 0xf3392b0822b70005940c7a398e4b70f3) >> 128;
-        if (absTick & 0x800 != 0)
-            ratio = (ratio * 0xe7159475a2c29b7443b29c7fa6e889d9) >> 128;
-        if (absTick & 0x1000 != 0)
-            ratio = (ratio * 0xd097f3bdfd2022b8845ad8f792aa5825) >> 128;
-        if (absTick & 0x2000 != 0)
-            ratio = (ratio * 0xa9f746462d870fdf8a65dc1f90e061e5) >> 128;
-        if (absTick & 0x4000 != 0)
-            ratio = (ratio * 0x70d869a156d2a1f6a7a2e3fadacb4c9b) >> 128;
-        if (absTick & 0x8000 != 0)
-            ratio = (ratio * 0x31be135f97d08fd981231505542fcfa6) >> 128;
-        if (absTick & 0x10000 != 0)
-            ratio = (ratio * 0x9aa508b5b7a84e1c677de54f3e99bc9) >> 128;
-        if (absTick & 0x20000 != 0)
-            ratio = (ratio * 0x5d6af8dedb81196699c329225ee604) >> 128;
-        if (absTick & 0x40000 != 0)
-            ratio = (ratio * 0x2216e584f5fa1ea926041bedfe98) >> 128;
-        if (absTick & 0x80000 != 0)
-            ratio = (ratio * 0x48a170391f7dc42444e8fa2) >> 128;
-
+        // If tick > 0, invert
         if (tick > 0) {
-            // invert
             ratio = type(uint256).max / ratio;
         }
-
-        // from Q128.128 to Q128.96
+        // shift from Q128.128 to Q128.96
         uint256 shifted = ratio >> 32;
         require(shifted <= type(uint160).max, "Price overflow");
         return uint160(shifted);
@@ -79,40 +33,104 @@ library TickMathLocal {
 }
 
 /* ------------------------------------------------------------------
-   Importing your original libraries from GitHub
------------------------------------------------------------------- */
-import "https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable/blob/v4.8.3/contracts/token/ERC20/ERC20Upgradeable.sol";
-import "https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable/blob/v4.8.3/contracts/security/PausableUpgradeable.sol";
-import "https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable/blob/v4.8.3/contracts/security/ReentrancyGuardUpgradeable.sol";
-import "https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable/blob/v4.8.3/contracts/access/OwnableUpgradeable.sol";
-import "https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable/blob/v4.8.3/contracts/proxy/utils/UUPSUpgradeable.sol";
-import "https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable/blob/v4.8.3/contracts/token/ERC721/IERC721ReceiverUpgradeable.sol";
+ * 2) PoolAddressLocal
+ * A local patch that uses address(uint160(uint256(...))) 
+ * instead of address(...)
+ * Also includes optional sorting logic from official PoolAddress
+ * ------------------------------------------------------------------ */
+library PoolAddressLocal {
+    // Replace with Uniswap V3’s actual init code hash:
+    bytes32 internal constant POOL_INIT_CODE_HASH = 0xe34f000000000000000000000000000000000000000000000000000000000000;
 
-// Uniswap V3 imports
-import "https://github.com/Uniswap/v3-periphery/blob/v1.3.0/contracts/interfaces/INonfungiblePositionManager.sol";
-import "https://github.com/Uniswap/v3-core/blob/v1.0.0/contracts/interfaces/IUniswapV3Factory.sol";
-import "https://github.com/Uniswap/v3-core/blob/v1.0.0/contracts/interfaces/IUniswapV3Pool.sol";
-import "https://github.com/Uniswap/v3-periphery/blob/v1.3.0/contracts/libraries/LiquidityAmounts.sol";
+    struct PoolKey {
+        address token0;
+        address token1;
+        uint24 fee;
+    }
+
+    function sortTokens(address tokenA, address tokenB)
+        internal
+        pure
+        returns (address token0, address token1)
+    {
+        require(tokenA != tokenB, "PoolAddress: same token");
+        if (tokenA < tokenB) {
+            token0 = tokenA;
+            token1 = tokenB;
+        } else {
+            token0 = tokenB;
+            token1 = tokenA;
+        }
+        require(token0 != address(0), "PoolAddress: zero address");
+    }
+
+    function getPoolKey(
+        address tokenA,
+        address tokenB,
+        uint24 fee
+    ) internal pure returns (PoolKey memory) {
+        (address t0, address t1) = sortTokens(tokenA, tokenB);
+        return PoolKey({ token0: t0, token1: t1, fee: fee });
+    }
+
+    function computeAddress(
+        address factory,
+        PoolKey memory key
+    ) internal pure returns (address pool) {
+        require(factory != address(0), "PoolAddress: zero factory");
+        pool = address(
+            uint160(
+                uint256(
+                    keccak256(
+                        abi.encodePacked(
+                            hex"ff",
+                            factory,
+                            keccak256(abi.encode(key.token0, key.token1, key.fee)),
+                            POOL_INIT_CODE_HASH
+                        )
+                    )
+                )
+            )
+        );
+    }
+}
 
 /* ------------------------------------------------------------------
-local interfaces for OracleManager, Rebalancer, Liquidator
------------------------------------------------------------------- */
+ * 3) Third-party external references from OpenZeppelin & Uniswap
+ * ------------------------------------------------------------------ */
+import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC721/IERC721ReceiverUpgradeable.sol";
+
+// Uniswap v3
+import "@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol";
+import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
+import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
+import "@uniswap/v3-periphery/contracts/libraries/LiquidityAmounts.sol";
+
+/* ------------------------------------------------------------------
+ * 4) Local placeholders for OracleManager, Rebalancer, Liquidator
+ *    Replace with your real code or references
+ * ------------------------------------------------------------------ */
 interface OracleManagerType {
     function getPrice(address) external view returns (uint256, uint8);
 }
+
 interface RebalancerType {
     function rebalance(address vault, bytes calldata data) external;
 }
+
 interface LiquidatorType {
     function liquidate(address vault, address user, uint256 seizeAmount) external;
 }
 
-/**
- * @title VaultImplementation (0.8.x Required)
- * @notice A UUPS-upgradeable vault that supports multiple NFTs from one Uniswap V3 pool,
- *         references a Rebalancer, Liquidator, OracleManager, and issues ERC20 shares 
- *         proportional to total vault value.
- */
+/* ------------------------------------------------------------------
+ * 5) VaultImplementation (UUPS) referencing local libraries 
+ *    for addressing cast issues, with splitted "removeLiquidity"
+ * ------------------------------------------------------------------ */
 contract VaultImplementation is
     ERC20Upgradeable,
     PausableUpgradeable,
@@ -121,25 +139,44 @@ contract VaultImplementation is
     UUPSUpgradeable,
     IERC721ReceiverUpgradeable
 {
+    // External references
     OracleManagerType public oracleManager;
     RebalancerType   public rebalancer;
     LiquidatorType   public liquidator;
-    INonfungiblePositionManager public positionManager;
-    IUniswapV3Factory public uniswapFactory;
 
+    INonfungiblePositionManager public positionManager;
+    IUniswapV3Factory           public uniswapFactory;
+
+    /// The single Uniswap V3 pool this vault accepts
     address public requiredPool;
+
+    /// Slippage in BPS (e.g. 300 => 3%)
     uint256 public maxSlippageBps;
 
+    /// Multi-NFT data
     struct NftPosition {
         bool    exists;
-        uint256 mintedShares;
+        uint256 mintedShares;     
         address originalDepositor;
     }
     mapping(uint256 => NftPosition) public nftPositions;
     uint256[] public allTokenIds;
 
-    event ExternalContractsUpdated(address indexed oracle, address indexed rebalancer, address indexed liquidator);
-    event SlippageUpdated(uint256 oldSlippageBps, uint256 newSlippageBps);
+    // Small struct to hold position data read from NFPM
+    struct PositionData {
+        address token0;
+        address token1;
+        uint24 fee;
+        int24  tickLower;
+        int24  tickUpper;
+        uint128 liquidity;
+        uint128 owed0;
+        uint128 owed1;
+    }
+
+    // Events
+    event ExternalContractsUpdated(address indexed oracle, address indexed rebal, address indexed liq);
+    event SlippageUpdated(uint256 oldSlippage, uint256 newSlippage);
     event NftDeposited(address indexed user, uint256 tokenId, uint256 mintedShares, uint256 nftValue);
     event NftWithdrawn(address indexed user, uint256 tokenId, uint256 burnedShares, uint256 nftValue);
     event LiquidityAdded(address indexed user, uint256 tokenId, uint256 mintedShares, uint256 addedValue);
@@ -149,10 +186,12 @@ contract VaultImplementation is
     event SharesSeized(address user, uint256 shares, address recipient);
     event RebalancerSharesMinted(uint256 extraValue, address to, uint256 mintedShares);
 
+    // UUPS
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 
     /**
-     * @dev Use the standard `__Ownable_init()`, then `_transferOwnership(_owner)`.
+     * If your custom Ownable requires an argument in __Ownable_init(...), pass it here. 
+     * If using standard OZ 4.8, you can do __Ownable_init() + _transferOwnership(_owner).
      */
     function initialize(
         address _positionManager,
@@ -166,17 +205,16 @@ contract VaultImplementation is
         string memory _symbol,
         uint256 _maxSlippageBps
     ) external initializer {
-        __Ownable_init();                 // no arguments
-        _transferOwnership(_owner);       // set the owner properly
+        __Ownable_init(_owner);
 
         __ERC20_init(_name, _symbol);
         __Pausable_init();
         __ReentrancyGuard_init();
         __UUPSUpgradeable_init();
 
-        require(_positionManager != address(0), "Vault: invalid positionManager");
-        require(_uniswapFactory  != address(0), "Vault: invalid uniswapFactory");
-        require(_requiredPool    != address(0), "Vault: invalid requiredPool");
+        require(_positionManager != address(0), "Vault: invalid posMgr");
+        require(_uniswapFactory  != address(0), "Vault: invalid factory");
+        require(_requiredPool    != address(0), "Vault: invalid pool");
         require(_oracleMgr       != address(0), "Vault: invalid oracle");
         require(_rebalancer      != address(0), "Vault: invalid rebalancer");
         require(_liquidator      != address(0), "Vault: invalid liquidator");
@@ -193,128 +231,148 @@ contract VaultImplementation is
         emit ExternalContractsUpdated(_oracleMgr, _rebalancer, _liquidator);
     }
 
+    // ------------------ Owner Setters ------------------
     function setExternalContracts(
         address _oracleMgr,
         address _rebalancer,
         address _liquidator
     ) external onlyOwner {
-        require(_oracleMgr     != address(0), "Vault: invalid oracle");
-        require(_rebalancer    != address(0), "Vault: invalid rebalancer");
-        require(_liquidator    != address(0), "Vault: invalid liquidator");
+        require(_oracleMgr != address(0),  "Vault: invalid oracle");
+        require(_rebalancer != address(0), "Vault: invalid rebalancer");
+        require(_liquidator != address(0), "Vault: invalid liquidator");
 
         oracleManager = OracleManagerType(_oracleMgr);
         rebalancer    = RebalancerType(_rebalancer);
         liquidator    = LiquidatorType(_liquidator);
+
         emit ExternalContractsUpdated(_oracleMgr, _rebalancer, _liquidator);
     }
 
-    function setMaxSlippageBps(uint256 newSlippageBps) external onlyOwner {
-        require(newSlippageBps <= 5000, "Vault: slippage too high");
+    function setMaxSlippageBps(uint256 newSlippage) external onlyOwner {
+        require(newSlippage <= 5000, "Vault: slippage too high");
         uint256 old = maxSlippageBps;
-        maxSlippageBps = newSlippageBps;
-        emit SlippageUpdated(old, newSlippageBps);
+        maxSlippageBps = newSlippage;
+        emit SlippageUpdated(old, newSlippage);
     }
 
-    function pauseVault() external onlyOwner { _pause(); }
-    function unpauseVault() external onlyOwner { _unpause(); }
+    function pauseVault() external onlyOwner {
+        _pause();
+    }
 
+    function unpauseVault() external onlyOwner {
+        _unpause();
+    }
+
+    // ------------------ NFT Handling ------------------
     function onERC721Received(
         address operator,
         address from,
         uint256 tokenId,
         bytes calldata
     ) external override nonReentrant whenNotPaused returns (bytes4) {
-        require(msg.sender == address(positionManager), "Vault: only from NFPM");
-        require(!nftPositions[tokenId].exists, "Vault: token exists already");
+        require(msg.sender == address(positionManager), "Vault: only NFPM");
+        require(!nftPositions[tokenId].exists, "Vault: token in vault");
+
         _ensureCorrectPool(tokenId);
 
-        uint256 nftValue = _getNftValue(tokenId);
-
-        uint256 oldSupply     = totalSupply();
-        uint256 oldVaultValue = _getTotalVaultValue();
-        uint256 depositValue  = nftValue;
-        uint256 mintedShares;
+        uint256 nftValue   = _getNftValue(tokenId);
+        uint256 oldSupply  = totalSupply();
+        uint256 oldValue   = _getTotalVaultValue();
+        uint256 minted;
 
         if (oldSupply == 0) {
-            mintedShares = depositValue;
+            minted = nftValue;
         } else {
-            mintedShares = (depositValue * oldSupply) / ((oldVaultValue == 0) ? 1 : oldVaultValue);
+            minted = (nftValue * oldSupply) / (oldValue == 0 ? 1 : oldValue);
         }
-        require(mintedShares > 0 || oldSupply == 0, "Vault: NFT => 0 shares?");
+        require(minted > 0 || oldSupply == 0, "Vault: minted=0? check NFT?");
 
         nftPositions[tokenId] = NftPosition({
             exists: true,
-            mintedShares: mintedShares,
+            mintedShares: minted,
             originalDepositor: from
         });
         allTokenIds.push(tokenId);
 
-        if (mintedShares > 0) {
-            _mint(from, mintedShares);
+        if (minted > 0) {
+            _mint(from, minted);
         }
 
-        emit NftDeposited(from, tokenId, mintedShares, nftValue);
+        emit NftDeposited(from, tokenId, minted, nftValue);
         return IERC721ReceiverUpgradeable.onERC721Received.selector;
     }
 
     function withdrawNFT(uint256 tokenId, address to) external nonReentrant whenNotPaused {
         require(to != address(0), "Vault: invalid to");
         NftPosition storage pos = nftPositions[tokenId];
-        require(pos.exists, "Vault: no such tokenId");
+        require(pos.exists, "Vault: not found");
 
-        uint256 neededShares = pos.mintedShares;
-        require(balanceOf(msg.sender) >= neededShares, "Vault: insufficient shares");
-        _burn(msg.sender, neededShares);
+        uint256 needed = pos.mintedShares;
+        require(balanceOf(msg.sender) >= needed, "Vault: insufficient shares");
+        _burn(msg.sender, needed);
 
         pos.exists = false;
         positionManager.safeTransferFrom(address(this), to, tokenId);
 
-        uint256 nftValue = _getNftValue(tokenId);
-        emit NftWithdrawn(msg.sender, tokenId, neededShares, nftValue);
+        uint256 val = _getNftValue(tokenId);
+        emit NftWithdrawn(msg.sender, tokenId, needed, val);
     }
 
+    // depositAdditional
     function depositAdditional(
         uint256 tokenId,
         uint256 amount0Desired,
         uint256 amount1Desired
     ) external nonReentrant whenNotPaused {
         NftPosition storage pos = nftPositions[tokenId];
-        require(pos.exists, "Vault: unknown tokenId");
+        require(pos.exists, "Vault: unknown token");
         require(amount0Desired > 0 || amount1Desired > 0, "No deposit amounts");
+
         _ensureCorrectPool(tokenId);
 
-        uint256 oldVaultValue = _getTotalVaultValue();
-        uint256 oldSupply     = totalSupply();
+        uint256 oldVal = _getTotalVaultValue();
+        uint256 oldSup = totalSupply();
 
-        uint256 amount0Min = (amount0Desired * (10000 - maxSlippageBps)) / 10000;
-        uint256 amount1Min = (amount1Desired * (10000 - maxSlippageBps)) / 10000;
+        uint256 amt0min = (amount0Desired * (10000 - maxSlippageBps)) / 10000;
+        uint256 amt1min = (amount1Desired * (10000 - maxSlippageBps)) / 10000;
 
-        INonfungiblePositionManager.IncreaseLiquidityParams memory params =
+        INonfungiblePositionManager.IncreaseLiquidityParams memory p =
             INonfungiblePositionManager.IncreaseLiquidityParams({
                 tokenId: tokenId,
                 amount0Desired: amount0Desired,
                 amount1Desired: amount1Desired,
-                amount0Min: amount0Min,
-                amount1Min: amount1Min,
+                amount0Min: amt0min,
+                amount1Min: amt1min,
                 deadline: block.timestamp + 1800
             });
-        (uint128 addedLiquidity, , ) = positionManager.increaseLiquidity(params);
-        require(addedLiquidity > 0, "No liquidity added");
+        (uint128 liq, , ) = positionManager.increaseLiquidity(p);
+        require(liq > 0, "No liquidity added?");
 
-        uint256 newVaultValue = _getTotalVaultValue();
-        require(newVaultValue > oldVaultValue, "No net value?");
-
-        uint256 depositValue = newVaultValue - oldVaultValue;
-        uint256 mintedShares = (oldSupply == 0)
+        uint256 newVal = _getTotalVaultValue();
+        require(newVal > oldVal, "No net value?");
+        uint256 depositValue = newVal - oldVal;
+        uint256 minted = (oldSup == 0)
             ? depositValue
-            : (depositValue * oldSupply) / ((oldVaultValue == 0) ? 1 : oldVaultValue);
+            : (depositValue * oldSup) / (oldVal == 0 ? 1 : oldVal);
 
-        pos.mintedShares += mintedShares;
-        if (mintedShares > 0) {
-            _mint(msg.sender, mintedShares);
+        pos.mintedShares += minted;
+        if (minted > 0) {
+            _mint(msg.sender, minted);
         }
 
-        emit LiquidityAdded(msg.sender, tokenId, mintedShares, depositValue);
+        emit LiquidityAdded(msg.sender, tokenId, minted, depositValue);
+    }
+
+    /**
+     * -------------- Stack-Too-Deep Fix in removeLiquidity --------------
+     * We define a small struct to store local variables and/or 
+     * break logic into an internal sub-function.
+     */
+    struct RemoveLiquidityLocalVars {
+        uint256 oldVal;
+        uint256 oldSup;
+        uint128 currentLiquidity;
+        uint128 liqRemove;
     }
 
     function removeLiquidity(uint256 tokenId, uint256 sharesToBurn)
@@ -322,17 +380,25 @@ contract VaultImplementation is
         nonReentrant
         whenNotPaused
     {
+        _removeLiquidityInternal(tokenId, sharesToBurn);
+    }
+
+    function _removeLiquidityInternal(uint256 tokenId, uint256 sharesToBurn) internal {
         NftPosition storage pos = nftPositions[tokenId];
-        require(pos.exists, "Vault: unknown tokenId");
-        require(sharesToBurn > 0, "No shares");
-        require(balanceOf(msg.sender) >= sharesToBurn, "Insufficient shares");
+        require(pos.exists, "Vault: unknown token");
+        require(sharesToBurn > 0, "No shares to burn");
+        require(balanceOf(msg.sender) >= sharesToBurn, "insufficient shares");
+
         _ensureCorrectPool(tokenId);
 
+        // burn user shares first
         _burn(msg.sender, sharesToBurn);
 
-        uint256 oldVaultValue = _getTotalVaultValue();
-        uint256 oldSupply     = totalSupply() + sharesToBurn;
+        RemoveLiquidityLocalVars memory v;
+        v.oldVal = _getTotalVaultValue();
+        v.oldSup = totalSupply() + sharesToBurn;
 
+        // get NFT liquidity
         (
             ,
             ,
@@ -341,46 +407,48 @@ contract VaultImplementation is
             ,
             ,
             ,
-            uint128 currentLiquidity,
+            v.currentLiquidity,
             ,
             ,
             ,
-            
+
         ) = positionManager.positions(tokenId);
 
-        uint128 liquidityToRemove = uint128((uint256(currentLiquidity) * sharesToBurn) / oldSupply);
-        if (liquidityToRemove > 0) {
-            (uint256 est0, uint256 est1) = _estimateTokenAmounts(tokenId, liquidityToRemove);
+        v.liqRemove = uint128((uint256(v.currentLiquidity) * sharesToBurn) / v.oldSup);
+        if (v.liqRemove > 0) {
+            (uint256 est0, uint256 est1) = _estimateTokenAmounts(tokenId, v.liqRemove);
             uint256 min0 = (est0 * (10000 - maxSlippageBps)) / 10000;
             uint256 min1 = (est1 * (10000 - maxSlippageBps)) / 10000;
 
-            INonfungiblePositionManager.DecreaseLiquidityParams memory dparams =
+            // Decrease liquidity
+            INonfungiblePositionManager.DecreaseLiquidityParams memory d =
                 INonfungiblePositionManager.DecreaseLiquidityParams({
                     tokenId: tokenId,
-                    liquidity: liquidityToRemove,
+                    liquidity: v.liqRemove,
                     amount0Min: min0,
                     amount1Min: min1,
                     deadline: block.timestamp + 1800
                 });
-            (uint256 removed0, uint256 removed1) = positionManager.decreaseLiquidity(dparams);
+            (uint256 removed0, uint256 removed1) = positionManager.decreaseLiquidity(d);
 
-            INonfungiblePositionManager.CollectParams memory cparams =
+            // collect
+            INonfungiblePositionManager.CollectParams memory c =
                 INonfungiblePositionManager.CollectParams({
                     tokenId: tokenId,
                     recipient: msg.sender,
                     amount0Max: uint128(removed0),
                     amount1Max: uint128(removed1)
                 });
-            positionManager.collect(cparams);
+            positionManager.collect(c);
         }
-
         pos.mintedShares -= sharesToBurn;
-        uint256 newVaultValue = _getTotalVaultValue();
-        uint256 removedValue = (oldVaultValue > newVaultValue) ? (oldVaultValue - newVaultValue) : 0;
 
+        uint256 newVal = _getTotalVaultValue();
+        uint256 removedValue = (v.oldVal > newVal) ? (v.oldVal - newVal) : 0;
         emit LiquidityRemoved(msg.sender, tokenId, sharesToBurn, removedValue);
     }
 
+    // Rebalance
     function rebalanceVault(uint256 tokenId, bytes calldata data) external whenNotPaused {
         require(nftPositions[tokenId].exists, "Vault: no such NFT");
         rebalancer.rebalance(address(this), data);
@@ -388,20 +456,20 @@ contract VaultImplementation is
     }
 
     function rebalancerMintShares(uint256 extraValue, address to) external {
-        require(msg.sender == address(rebalancer), "Vault: only Rebalancer");
+        require(msg.sender == address(rebalancer), "Vault: only rebalancer");
         require(extraValue > 0, "No extraValue");
+        uint256 oldVal = _getTotalVaultValue();
+        uint256 oldSup = totalSupply();
 
-        uint256 oldVaultValue = _getTotalVaultValue();
-        uint256 oldSupply = totalSupply();
-
-        uint256 mintedShares = (oldSupply == 0)
+        uint256 minted = (oldSup == 0)
             ? extraValue
-            : (extraValue * oldSupply) / ((oldVaultValue == 0) ? 1 : oldVaultValue);
+            : (extraValue * oldSup) / (oldVal == 0 ? 1 : oldVal);
 
-        _mint(to, mintedShares);
-        emit RebalancerSharesMinted(extraValue, to, mintedShares);
+        _mint(to, minted);
+        emit RebalancerSharesMinted(extraValue, to, minted);
     }
 
+    // Liquidator
     function liquidatePosition(address user, bytes calldata data) external whenNotPaused {
         (uint256 liquidationAmount) = abi.decode(data, (uint256));
         liquidator.liquidate(address(this), user, liquidationAmount);
@@ -409,15 +477,70 @@ contract VaultImplementation is
     }
 
     function seizeShares(address from, uint256 shares, address recipient) external {
-        require(msg.sender == address(liquidator), "Vault: only Liquidator");
+        require(msg.sender == address(liquidator), "Vault: only liquidator");
         require(balanceOf(from) >= shares, "Vault: insufficient shares");
         _burn(from, shares);
         _mint(recipient, shares);
         emit SharesSeized(from, shares, recipient);
     }
 
+    // Price
     function getUnderlyingPrice() external view returns (uint256 price, uint8 decimals) {
         return oracleManager.getPrice(address(this));
+    }
+
+    /* ------------------------------------------------------------------
+       Internal Helpers
+    ------------------------------------------------------------------ */
+
+    /**
+     * Fetch position data into a struct to reduce local variables in _getNftValue().
+     */
+    function _getPositionData(uint256 tokenId) internal view returns (PositionData memory pd) {
+        (
+            ,
+            ,
+            pd.token0,
+            pd.token1,
+            pd.fee,
+            pd.tickLower,
+            pd.tickUpper,
+            pd.liquidity,
+            ,
+            ,
+            pd.owed0,
+            pd.owed1
+        ) = positionManager.positions(tokenId);
+    }
+
+    /**
+     * Clean refactor of _getNftValue using fewer local variables.
+     */
+    function _getNftValue(uint256 tokenId) internal view returns (uint256) {
+        // 1) Fetch position data
+        PositionData memory pd = _getPositionData(tokenId);
+
+        // 2) Validate the Uniswap pool
+        address poolAddr = uniswapFactory.getPool(pd.token0, pd.token1, pd.fee);
+        require(poolAddr == requiredPool, "Vault: NFT from wrong pool");
+
+        // 3) Compute amounts from active liquidity
+        (uint160 sqrtPriceX96, , , , , , ) = IUniswapV3Pool(poolAddr).slot0();
+        (uint256 amt0Active, uint256 amt1Active) = LiquidityAmounts.getAmountsForLiquidity(
+            sqrtPriceX96,
+            TickMathLocal.getSqrtRatioAtTick(pd.tickLower),
+            TickMathLocal.getSqrtRatioAtTick(pd.tickUpper),
+            pd.liquidity
+        );
+        uint256 total0 = amt0Active + pd.owed0;
+        uint256 total1 = amt1Active + pd.owed1;
+
+        // 4) Fetch prices, do inline arithmetic
+        (uint256 p0, uint8 d0) = oracleManager.getPrice(pd.token0);
+        (uint256 p1, uint8 d1) = oracleManager.getPrice(pd.token1);
+
+        // 5) Return aggregated dollar value
+        return ((total0 * p0) / (10**d0)) + ((total1 * p1) / (10**d1));
     }
 
     function _getTotalVaultValue() internal view returns (uint256) {
@@ -429,46 +552,6 @@ contract VaultImplementation is
             }
         }
         return sum;
-    }
-
-    function _getNftValue(uint256 tokenId) internal view returns (uint256) {
-        (
-            ,
-            ,
-            address token0,
-            address token1,
-            uint24 fee,
-            int24 tickLower,
-            int24 tickUpper,
-            uint128 liquidity,
-            ,
-            ,
-            uint128 tokensOwed0,
-            uint128 tokensOwed1
-        ) = positionManager.positions(tokenId);
-
-        address poolAddr = uniswapFactory.getPool(token0, token1, fee);
-        require(poolAddr == requiredPool, "Vault: NFT from wrong pool");
-
-        (uint160 sqrtPriceX96, , , , , , ) = IUniswapV3Pool(poolAddr).slot0();
-
-        (uint256 amt0Active, uint256 amt1Active) = LiquidityAmounts.getAmountsForLiquidity(
-            sqrtPriceX96,
-            TickMathLocal.getSqrtRatioAtTick(tickLower),   // using local library
-            TickMathLocal.getSqrtRatioAtTick(tickUpper),
-            liquidity
-        );
-        // total amounts
-        uint256 total0 = amt0Active + tokensOwed0;
-        uint256 total1 = amt1Active + tokensOwed1;
-
-        (uint256 p0, uint8 d0) = oracleManager.getPrice(token0);
-        (uint256 p1, uint8 d1) = oracleManager.getPrice(token1);
-
-        uint256 value0 = (total0 * p0) / (10 ** d0);
-        uint256 value1 = (total1 * p1) / (10 ** d1);
-
-        return value0 + value1;
     }
 
     function _ensureCorrectPool(uint256 tokenId) internal view {
@@ -484,11 +567,10 @@ contract VaultImplementation is
             ,
             ,
             ,
-            
         ) = positionManager.positions(tokenId);
 
         address poolAddr = uniswapFactory.getPool(token0, token1, fee);
-        require(poolAddr == requiredPool, "Vault: tokenId not from requiredPool");
+        require(poolAddr == requiredPool, "Vault: mismatch pool");
     }
 
     function _estimateTokenAmounts(uint256 tokenId, uint128 liqToRemove)
@@ -513,11 +595,11 @@ contract VaultImplementation is
 
         address poolAddr = uniswapFactory.getPool(token0, token1, fee);
         require(poolAddr == requiredPool, "Vault: mismatch pool");
-        (uint160 sqrtPriceX96, , , , , , ) = IUniswapV3Pool(poolAddr).slot0();
 
+        (uint160 sqrtPriceX96, , , , , , ) = IUniswapV3Pool(poolAddr).slot0();
         (amt0, amt1) = LiquidityAmounts.getAmountsForLiquidity(
             sqrtPriceX96,
-            TickMathLocal.getSqrtRatioAtTick(tickLower),   // local library
+            TickMathLocal.getSqrtRatioAtTick(tickLower),
             TickMathLocal.getSqrtRatioAtTick(tickUpper),
             liqToRemove
         );
