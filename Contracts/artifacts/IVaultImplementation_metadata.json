@@ -55,7 +55,7 @@
 			}
 		],
 		"devdoc": {
-			"details": "Minimal interface for the logic contract (VaultImplementation).      Used by the factory to call `initialize(...)` upon proxy creation.",
+			"details": "interface for the logic contract (VaultImplementation).      Used by the factory to call `initialize(...)` upon proxy creation.",
 			"kind": "dev",
 			"methods": {},
 			"version": 1
@@ -187,11 +187,11 @@
 			]
 		},
 		"Contracts/VaultFactoryImplementation.sol": {
-			"keccak256": "0x89ee2007060f0790def8cf12f793d077d4c56830c4e3105db648b87a9fbcbbcb",
+			"keccak256": "0xa4625edba0af0af7c8db411af287e0eee579841e261382719ad7cf6a67559c5b",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://14a88ef4d72a87eb55e9db8eba363b9f39723e36c73191e6faeb91133e212440",
-				"dweb:/ipfs/QmdPitaoCp41LYaxL9XoZip8Ud8e1jbjScMjMMkvUJgQMg"
+				"bzz-raw://c3fb4e3efddaeeb1de5ef8c39cd41d8310c67e7acb4226b6588325cbccd673bd",
+				"dweb:/ipfs/Qmd24oRK6A5XkzY5tXEbzMSr7Vf1zSCQiQU26t8ZFULHuR"
 			]
 		}
 	},

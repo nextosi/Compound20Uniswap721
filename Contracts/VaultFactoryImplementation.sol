@@ -12,17 +12,6 @@ pragma solidity ^0.8.17;
  *         4. Maintains an array of all deployed vault addresses.
  *         5. Can be upgraded (UUPS) by its owner if new functionality or fixes are required.
  *         6. Integrates easily with a Timelock or direct calls for upgrade scheduling.
- *
- *         This file is a fully expanded version of the VaultFactoryImplementation, 
- *         corrected to address the TypeError regarding __Ownable_init arguments.
- *
- *         NOTE: If your version of OpenZeppelin's OwnableUpgradeable requires no parameters
- *               for __Ownable_init(), you can revert to calling __Ownable_init().
- *               If you are using a custom version that requires the owner address
- *               (e.g., __Ownable_init(address) ), pass the necessary parameter.
- *
- *         For demonstration, we assume you have a custom Ownable that wants one argument 
- *         in __Ownable_init(...). Adjust as needed for your actual environment.
  */
 
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
@@ -31,7 +20,7 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 /**
- * @dev Minimal interface for the logic contract (VaultImplementation).
+ * @dev  interface for the logic contract (VaultImplementation).
  *      Used by the factory to call `initialize(...)` upon proxy creation.
  */
 interface IVaultImplementation {

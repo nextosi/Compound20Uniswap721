@@ -1,10 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
-/* 
- * Replacing direct references to Uniswap's TickMath with a local 0.8-compatible version.
- * Similarly, if you need Uniswap's PoolAddress, adapt it locally or remove usage.
- */
 
 /* ------------------ Local TickMath for 0.8.x ------------------ */
 /**
@@ -83,9 +79,7 @@ library TickMathLocal {
 }
 
 /* ------------------------------------------------------------------
-   Importing your original libraries from GitHub, except we replaced 
-   `import "https://github.com/Uniswap/v3-core/blob/v1.0.0/contracts/libraries/TickMath.sol";`
-   with the local TickMathLocal.
+   Importing your original libraries from GitHub
 ------------------------------------------------------------------ */
 import "https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable/blob/v4.8.3/contracts/token/ERC20/ERC20Upgradeable.sol";
 import "https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable/blob/v4.8.3/contracts/security/PausableUpgradeable.sol";
@@ -101,7 +95,7 @@ import "https://github.com/Uniswap/v3-core/blob/v1.0.0/contracts/interfaces/IUni
 import "https://github.com/Uniswap/v3-periphery/blob/v1.3.0/contracts/libraries/LiquidityAmounts.sol";
 
 /* ------------------------------------------------------------------
-   Minimal or local interfaces for OracleManager, Rebalancer, Liquidator
+local interfaces for OracleManager, Rebalancer, Liquidator
 ------------------------------------------------------------------ */
 interface OracleManagerType {
     function getPrice(address) external view returns (uint256, uint8);
@@ -114,7 +108,7 @@ interface LiquidatorType {
 }
 
 /**
- * @title VaultImplementation (0.8.x Compatible)
+ * @title VaultImplementation (0.8.x Required)
  * @notice A UUPS-upgradeable vault that supports multiple NFTs from one Uniswap V3 pool,
  *         references a Rebalancer, Liquidator, OracleManager, and issues ERC20 shares 
  *         proportional to total vault value.
