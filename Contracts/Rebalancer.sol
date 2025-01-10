@@ -20,9 +20,6 @@ interface IMultiNftVaultRebalance {
  * @notice Rebalances a Uniswap V3 position for a Vault by removing/adding liquidity,
  *         optionally checking an OracleManager for price constraints, 
  *         and providing an “auto-compounding” feature that can mint shares.
- *
- *         The code here is split into smaller internal helpers to avoid 
- *         'Stack Too Deep' errors in Solidity 0.8.x.
  */
 contract Rebalancer is Ownable {
     OracleMgr public oracleManager;
