@@ -1,12 +1,57 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.17;
-
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol";
-import { OracleManager as OracleMgr } from "./OracleManager.sol";
+pragma solidity ^0.8.28;
 
 /**
- * @dev Minimal interface for a Vault that the Rebalancer interacts with.
+ * @dev Minimal local `Ownable` under ^0.8.28 to avoid importing older
+ *      openzeppelin code referencing <0.8.0. If you prefer, you can
+ *      manually copy the official OZ v4.8.3 code (which is ^0.8.x)
+ *      but remove or update any leftover <0.8.0 references.
+ */
+contract Ownable {
+    address private _owner;
+
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+
+    constructor(address initialOwner) {
+        require(initialOwner != address(0), "Ownable: invalid owner");
+        _owner = initialOwner;
+        emit OwnershipTransferred(address(0), initialOwner);
+    }
+
+    modifier onlyOwner() {
+        require(owner() == msg.sender, "Ownable: not owner");
+        _;
+    }
+
+    function owner() public view returns (address) {
+        return _owner;
+    }
+
+    function transferOwnership(address newOwner) public onlyOwner {
+        require(newOwner != address(0), "Ownable: invalid newOwner");
+        emit OwnershipTransferred(_owner, newOwner);
+        _owner = newOwner;
+    }
+}
+
+/**
+ * @dev Minimal local interface for OracleManager. 
+ *      We only need to store a reference to it and possibly call some function,
+ *      but if your code never calls it, we can omit the function signature.
+ */
+interface OracleManager {
+    // e.g. if you need a function like getSomething() from the Oracle,
+    // declare it here. Otherwise it can be blank if you only store a reference.
+    // function getSomeValue() external view returns (uint256);
+}
+
+/**
+ * @dev Minimal interface for an ERC721-based vault that the Rebalancer interacts with.
+ *      We specifically want:
+ *      - vaultPositionTokenId() => returns the Uniswap v3 position tokenId
+ *      - positionManager() => returns the NFPM address
+ *      - getUnderlyingPrice() => returns a price for optional checks
+ *      - rebalancerMintShares(...) => a function to auto-compound new shares
  */
 interface IMultiNftVaultRebalance {
     function vaultPositionTokenId() external view returns (uint256);
@@ -16,13 +61,77 @@ interface IMultiNftVaultRebalance {
 }
 
 /**
+ * @dev A local interface for Uniswap’s INonfungiblePositionManager
+ *      so we avoid pulling in older `<0.8.0` references.
+ */
+interface IMinimalNonfungiblePositionManager {
+    struct DecreaseLiquidityParams {
+        uint256 tokenId;
+        uint128 liquidity;
+        uint256 amount0Min;
+        uint256 amount1Min;
+        uint256 deadline;
+    }
+
+    struct CollectParams {
+        uint256 tokenId;
+        address recipient;
+        uint128 amount0Max;
+        uint128 amount1Max;
+    }
+
+    struct IncreaseLiquidityParams {
+        uint256 tokenId;
+        uint256 amount0Desired;
+        uint256 amount1Desired;
+        uint256 amount0Min;
+        uint256 amount1Min;
+        uint256 deadline;
+    }
+
+    function positions(uint256 tokenId)
+        external
+        view
+        returns (
+            uint96 nonce,
+            address operator,
+            address token0,
+            address token1,
+            uint24 fee,
+            int24 tickLower,
+            int24 tickUpper,
+            uint128 liquidity,
+            uint256 feeGrowthInside0LastX128,
+            uint256 feeGrowthInside1LastX128,
+            uint128 tokensOwed0,
+            uint128 tokensOwed1
+        );
+
+    function decreaseLiquidity(DecreaseLiquidityParams calldata params)
+        external
+        returns (uint256 amount0, uint256 amount1);
+
+    function collect(CollectParams calldata params)
+        external
+        returns (uint256 amount0, uint256 amount1);
+
+    function increaseLiquidity(IncreaseLiquidityParams calldata params)
+        external
+        returns (uint128 liquidity, uint256 amount0, uint256 amount1);
+}
+
+/**
  * @title Rebalancer
  * @notice Rebalances a Uniswap V3 position for a Vault by removing/adding liquidity,
  *         optionally checking an OracleManager for price constraints, 
  *         and providing an “auto-compounding” feature that can mint shares.
+ *
+ *         This version uses no external references that specify `<0.8.0`,
+ *         thus avoiding the “ParserError: Source file requires different compiler version” issue.
  */
 contract Rebalancer is Ownable {
-    OracleMgr public oracleManager;
+
+    OracleManager public oracleManager;
 
     uint256 public minPriceAllowed;
     uint256 public maxPriceAllowed;
@@ -42,24 +151,31 @@ contract Rebalancer is Ownable {
 
     event PriceBoundsUpdated(uint256 minPrice, uint256 maxPrice);
 
+    /**
+     * @dev We pass the `initialOwner` to our local `Ownable` constructor.
+     *      `_oracleManager` is stored in case you want to call it for some logic (not shown).
+     *      `[minPriceAllowed, maxPriceAllowed]` define optional price range checks.
+     */
     constructor(
         address initialOwner,
         address _oracleManager,
         uint256 _minPrice,
         uint256 _maxPrice
-    ) Ownable(initialOwner)
+    )
+        Ownable(initialOwner)
     {
         require(_oracleManager != address(0), "Rebalancer: invalid oracle");
         require(_minPrice <= _maxPrice, "Rebalancer: minPrice>maxPrice");
 
-        oracleManager     = OracleMgr(_oracleManager);
-        minPriceAllowed   = _minPrice;
-        maxPriceAllowed   = _maxPrice;
+        oracleManager   = OracleManager(_oracleManager);
+        minPriceAllowed = _minPrice;
+        maxPriceAllowed = _maxPrice;
 
         emit PriceBoundsUpdated(_minPrice, _maxPrice);
     }
 
     // ------------------ Owner Setters ------------------
+
     function setPriceBounds(uint256 newMin, uint256 newMax) external onlyOwner {
         require(newMin <= newMax, "Rebalancer: minPrice>maxPrice");
         minPriceAllowed = newMin;
@@ -69,7 +185,7 @@ contract Rebalancer is Ownable {
 
     function setOracleManager(address newOracle) external onlyOwner {
         require(newOracle != address(0), "Rebalancer: invalid oracle");
-        oracleManager = OracleMgr(newOracle);
+        oracleManager = OracleManager(newOracle);
     }
 
     function setDefaultAutoCompound(bool autoCompound) external onlyOwner {
@@ -77,9 +193,7 @@ contract Rebalancer is Ownable {
     }
 
     // ------------------ Data Structures ------------------
-    /**
-     * @dev The arguments we decode from `rebalance(...) data`.
-     */
+
     struct ExtendedRebalanceArgs {
         uint128 liquidityToRemove;
         uint256 amount0MinRemove;
@@ -91,7 +205,6 @@ contract Rebalancer is Ownable {
         uint256 extraValueForCompounding;
     }
 
-   
     struct RebalanceLocalVars {
         address posMgr;
         uint256 tokenId;
@@ -108,6 +221,7 @@ contract Rebalancer is Ownable {
     }
 
     // ------------------ External Entry ------------------
+
     /**
      * @notice Rebalances the position by removing liquidity, collecting tokens, optionally adding more,
      *         and optionally auto-compounding (minting shares).
@@ -117,9 +231,7 @@ contract Rebalancer is Ownable {
      */
     function rebalance(address vault, bytes calldata data) external onlyOwner {
         require(vault != address(0), "Rebalancer: invalid vault");
-
         RebalanceLocalVars memory v = _rebalanceInternal(vault, data);
-
 
         emit RebalancePerformed(
             vault,
@@ -133,11 +245,8 @@ contract Rebalancer is Ownable {
         );
     }
 
-    // ------------------ Internal Rebalance Logic ------------------
-    /**
-     * @dev Splits the rebalance logic into a separate internal function that returns
-     *      a struct. 
-     */
+    // ------------------ Internal Logic ------------------
+
     function _rebalanceInternal(address vault, bytes calldata data)
         private
         returns (RebalanceLocalVars memory v)
@@ -155,7 +264,7 @@ contract Rebalancer is Ownable {
 
         // 4) fetch current liquidity
         v.currentLiquidity = _fetchLiquidity(v.posMgr, v.tokenId);
-        require(v.currentLiquidity >= args.liquidityToRemove, "Not enough liquidity");
+        require(v.currentLiquidity >= args.liquidityToRemove, "Rebalancer: not enough liquidity");
 
         // 5) remove liquidity
         (v.amt0Removed, v.amt1Removed) = _removeLiquidity(
@@ -191,8 +300,11 @@ contract Rebalancer is Ownable {
         return v;
     }
 
-    // ------------------ Internal Helpers ------------------
-    function _decodeArgs(bytes calldata data) private pure returns (ExtendedRebalanceArgs memory a) {
+    function _decodeArgs(bytes calldata data)
+        private
+        pure
+        returns (ExtendedRebalanceArgs memory a)
+    {
         (
             a.liquidityToRemove,
             a.amount0MinRemove,
@@ -220,8 +332,9 @@ contract Rebalancer is Ownable {
         view
         returns (uint128 liquidity)
     {
+        // call positions(tokenId)
         (bool success, bytes memory result) = posMgr.staticcall(
-            abi.encodeWithSelector(INonfungiblePositionManager.positions.selector, tokenId)
+            abi.encodeWithSelector(IMinimalNonfungiblePositionManager.positions.selector, tokenId)
         );
         require(success, _getRevertMsg(result));
 
@@ -233,7 +346,7 @@ contract Rebalancer is Ownable {
             ,
             ,
             ,
-            liquidity, // we only read out 'liquidity' from the tuple
+            liquidity,
             ,
             ,
             ,
@@ -270,8 +383,9 @@ contract Rebalancer is Ownable {
         if (liquidityToRemove == 0) {
             return (0, 0);
         }
-        INonfungiblePositionManager.DecreaseLiquidityParams memory p =
-            INonfungiblePositionManager.DecreaseLiquidityParams({
+
+        IMinimalNonfungiblePositionManager.DecreaseLiquidityParams memory p =
+            IMinimalNonfungiblePositionManager.DecreaseLiquidityParams({
                 tokenId: tokenId,
                 liquidity: liquidityToRemove,
                 amount0Min: amount0MinRemove,
@@ -279,21 +393,22 @@ contract Rebalancer is Ownable {
                 deadline: deadline
             });
 
-        (amount0, amount1) = INonfungiblePositionManager(posMgr).decreaseLiquidity(p);
+        (amount0, amount1) = IMinimalNonfungiblePositionManager(posMgr).decreaseLiquidity(p);
     }
 
     function _collectAll(address posMgr, address recipient, uint256 tokenId)
         private
         returns (uint256 amount0, uint256 amount1)
     {
-        INonfungiblePositionManager.CollectParams memory cp =
-            INonfungiblePositionManager.CollectParams({
+        IMinimalNonfungiblePositionManager.CollectParams memory cp =
+            IMinimalNonfungiblePositionManager.CollectParams({
                 tokenId: tokenId,
                 recipient: recipient,
                 amount0Max: type(uint128).max,
                 amount1Max: type(uint128).max
             });
-        (amount0, amount1) = INonfungiblePositionManager(posMgr).collect(cp);
+
+        (amount0, amount1) = IMinimalNonfungiblePositionManager(posMgr).collect(cp);
     }
 
     function _addLiquidity(
@@ -306,17 +421,17 @@ contract Rebalancer is Ownable {
         private
         returns (uint128 liquidity, uint256 used0, uint256 used1)
     {
-        INonfungiblePositionManager.IncreaseLiquidityParams memory p =
-            INonfungiblePositionManager.IncreaseLiquidityParams({
+        IMinimalNonfungiblePositionManager.IncreaseLiquidityParams memory p =
+            IMinimalNonfungiblePositionManager.IncreaseLiquidityParams({
                 tokenId: tokenId,
                 amount0Desired: amount0DesiredAdd,
                 amount1Desired: amount1DesiredAdd,
-                amount0Min: 0,  // could pass from arguments if needed
-                amount1Min: 0,  // could pass from arguments if needed
+                amount0Min: 0,
+                amount1Min: 0,
                 deadline: deadline
             });
 
-        (liquidity, used0, used1) = INonfungiblePositionManager(posMgr).increaseLiquidity(p);
+        (liquidity, used0, used1) = IMinimalNonfungiblePositionManager(posMgr).increaseLiquidity(p);
     }
 
     function _getRevertMsg(bytes memory _returnData) private pure returns (string memory) {
