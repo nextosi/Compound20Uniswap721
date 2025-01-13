@@ -1,17 +1,26 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
-// ---------------------------------------------------------------------
-// 1) Standard OpenZeppelin imports for UUPS, Ownable, etc.
-// ---------------------------------------------------------------------
+/**
+ * @title VaultFactoryImplementation
+ * @notice A UUPS-upgradeable factory contract that deploys new Vault proxies,
+ *         each vault manages a Uniswap V3 position. The factory:
+ *         1. References a single VaultImplementation (logic) address.
+ *         2. Deploys ERC1967Proxy proxies pointing to that logic for each new vault.
+ *         3. Optionally stores default addresses for OracleManager, Rebalancer, and Liquidator,
+ *            which can be overridden at vault creation if desired.
+ *         4. Maintains an array of all deployed vault addresses.
+ *         5. Can be upgraded (UUPS) by its owner if new functionality or fixes are required.
+ */
+
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 /**
- * @dev Minimal interface for your vault logic. 
- *      We assume you call `initialize(...)` on it.
+ * @dev Minimal interface for the logic contract (VaultImplementation).
+ *      Used by the factory to call `initialize(...)` upon proxy creation.
  */
 interface IVaultImplementation {
     function initialize(
@@ -27,17 +36,54 @@ interface IVaultImplementation {
 }
 
 /**
- * @dev Minimal interface for reading from a vault. Shown for context.
+ * @dev Minimal interface for the vault so we can read `requiredPool()`.
  */
 interface IVaultReceiver {
     function requiredPool() external view returns (address);
 }
 
 /**
+ * @dev Minimal interface for a Uniswap V3 pool to read `factory()`.
+ */
+interface ILocalUniswapV3Pool {
+    function factory() external view returns (address);
+}
+
+/**
+ * @dev Minimal interface for a Uniswap V3 factory to getPool(token0, token1, fee).
+ */
+interface ILocalUniswapV3FactorySimple {
+    function getPool(address tokenA, address tokenB, uint24 fee) external view returns (address);
+}
+
+/**
+ * @dev Minimal interface for the NonfungiblePositionManager to read positions(...) and do safeTransferFrom(...).
+ */
+interface IMinimalNonfungiblePositionManager {
+    function positions(uint256 tokenId)
+        external
+        view
+        returns (
+            uint96 nonce,
+            address operator,
+            address token0,
+            address token1,
+            uint24 fee,
+            int24 tickLower,
+            int24 tickUpper,
+            uint128 liquidity,
+            uint256 feeGrowthInside0LastX128,
+            uint256 feeGrowthInside1LastX128,
+            uint128 tokensOwed0,
+            uint128 tokensOwed1
+        );
+
+    function safeTransferFrom(address from, address to, uint256 tokenId) external;
+}
+
+/**
  * @title VaultFactoryImplementation
- * @notice A UUPS-upgradeable factory 
- *
- * 
+ * @dev A UUPS-upgradeable factory for creating new vault proxies.
  */
 contract VaultFactoryImplementation is
     Initializable,
@@ -50,19 +96,19 @@ contract VaultFactoryImplementation is
     address public vaultLogic;
 
     /**
-     * @dev Default references for OracleManager, Rebalancer, and Liquidator.
+     * @dev Default references for external contracts if the user doesn't specify them.
      */
     address public defaultOracleManager;
     address public defaultRebalancer;
     address public defaultLiquidator;
 
     /**
-     * @dev Stores addresses of all vault proxies created by this factory.
+     * @dev Array of all vault proxies created by this factory.
      */
     address[] public allVaults;
 
     /**
-     * @dev Emitted when a new vault is created.
+     * @dev Emitted when a new vault proxy is created.
      */
     event VaultCreated(
         address indexed vaultProxy,
@@ -80,14 +126,12 @@ contract VaultFactoryImplementation is
     );
 
     /**
-     * @notice Initializes the factory. Called once at deployment behind a proxy.
-     *         This is UUPS-upgradeable, so we call the usual OpenZeppelin inits.
+     * @notice Initializes the factory. Called once at deployment behind its own proxy.
      *
-     * @param _vaultLogic The deployed VaultImplementation logic contract.
-     * @param _owner      The owner (e.g., DAO or deployer).
+     * @param _vaultLogic   The deployed VaultImplementation logic contract.
+     * @param _owner        The owner (often a DAO or deployer).
      */
     function initialize(address _vaultLogic, address _owner) external initializer {
-        // OpenZeppelin's recommended pattern
         __Ownable_init(_owner);
         __UUPSUpgradeable_init();
 
@@ -101,7 +145,8 @@ contract VaultFactoryImplementation is
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 
     /**
-     * @notice Sets a new logic contract for future vaults, if you want to upgrade logic references.
+     * @notice Sets a new logic contract address for future vaults (if you want to upgrade).
+     * @param newVaultLogic The new VaultImplementation logic contract
      */
     function setVaultLogic(address newVaultLogic) external onlyOwner {
         require(newVaultLogic != address(0), "VaultFactory: invalid logic");
@@ -109,8 +154,11 @@ contract VaultFactoryImplementation is
     }
 
     /**
-     * @notice Sets default references for OracleManager, Rebalancer, and Liquidator addresses.
-     *         If the user doesn't specify these in createVault, they fallback to these defaults.
+     * @notice Sets the default OracleManager, Rebalancer, and Liquidator addresses for the factory.
+     *         Users can override these when creating a new vault by passing non-zero addresses.
+     * @param _oracleManager   Address of the default OracleManager
+     * @param _rebalancer      Address of the default Rebalancer
+     * @param _liquidator      Address of the default Liquidator
      */
     function setDefaultReferences(
         address _oracleManager,
@@ -129,16 +177,16 @@ contract VaultFactoryImplementation is
     }
 
     /**
-     * @notice Deploys a new vault proxy, passing init data to the vault logic. The caller becomes the vault's owner.
+     * @notice Deploys a new vault proxy pointing to `vaultLogic`. The caller becomes the vault's owner.
      *
-     * @param v3Pool      The Uniswap V3 pool address for the vault
-     * @param positionMgr The NonfungiblePositionManager used by the vault
-     * @param oracleMgr   OracleManager (or zero to use default)
-     * @param rebalancer  Rebalancer (or zero to use default)
-     * @param liquidator  Liquidator (or zero to use default)
-     * @param name        ERC20 name for the vault's share token
-     * @param symbol      ERC20 symbol for the vault's share token
-     * @return proxyAddr  The address of the newly deployed vault proxy
+     * @param v3Pool        The Uniswap V3 pool address for the vault
+     * @param positionMgr   The NonfungiblePositionManager used by the vault
+     * @param oracleMgr     OracleManager (or zero for default)
+     * @param rebalancer    Rebalancer (or zero for default)
+     * @param liquidator    Liquidator (or zero for default)
+     * @param name          The ERC20 name for the vault shares
+     * @param symbol        The ERC20 symbol for the vault shares
+     * @return proxyAddr    The address of the newly deployed vault proxy
      */
     function createVault(
         address v3Pool,
@@ -152,7 +200,7 @@ contract VaultFactoryImplementation is
         require(v3Pool != address(0), "VaultFactory: invalid v3Pool");
         require(positionMgr != address(0), "VaultFactory: invalid positionMgr");
 
-        // Fallback to defaults
+        // If zero is passed, fallback to defaults
         address finalOracle = (oracleMgr == address(0)) ? defaultOracleManager : oracleMgr;
         address finalRebalancer = (rebalancer == address(0)) ? defaultRebalancer : rebalancer;
         address finalLiquidator = (liquidator == address(0)) ? defaultLiquidator : liquidator;
@@ -169,29 +217,30 @@ contract VaultFactoryImplementation is
             finalOracle,
             finalRebalancer,
             finalLiquidator,
-            msg.sender, // the vault's owner
+            msg.sender, // the vault owner
             name,
             symbol
         );
 
-        // Deploy a new proxy pointing to vaultLogic
+        // Deploy a new ERC1967Proxy with the above init data
         ERC1967Proxy proxy = new ERC1967Proxy(vaultLogic, initData);
         proxyAddr = address(proxy);
 
         // Track it
         allVaults.push(proxyAddr);
+
         emit VaultCreated(proxyAddr, msg.sender, v3Pool);
     }
 
     /**
-     * @notice Returns the total number of vaults created by this factory.
+     * @notice Returns the number of vaults created by this factory.
      */
     function vaultCount() external view returns (uint256) {
         return allVaults.length;
     }
 
     /**
-     * @notice Returns a vault address by index in the allVaults array.
+     * @notice Retrieve a vault address by index in the `allVaults` array.
      */
     function getVault(uint256 index) external view returns (address) {
         require(index < allVaults.length, "VaultFactory: out of range");
@@ -200,9 +249,35 @@ contract VaultFactoryImplementation is
 
     /**
      * @notice Returns the entire list of vault addresses. 
-     *         Use with caution if the list is large.
+     *         Use with care if the array is large.
      */
     function getAllVaults() external view returns (address[] memory) {
         return allVaults;
+    }
+
+    /**
+     * @dev The vault must implement onERC721Received in a non-reverting manner 
+     *      for matched or mismatched pools.
+     * @param vault       The vault address that implements onERC721Received
+     * @param tokenId     The NFT to deposit
+     * @param positionMgr The NFPM address holding the positions
+     */
+    function depositNftForVault(
+        address vault,
+        uint256 tokenId,
+        address positionMgr
+    ) external {
+        require(vault != address(0), "VaultFactory: invalid vault");
+        require(positionMgr != address(0), "VaultFactory: invalid positionMgr");
+
+        // read vault.requiredPool()
+        address rPool = IVaultReceiver(vault).requiredPool();
+    
+
+        IMinimalNonfungiblePositionManager(positionMgr).positions(tokenId);
+
+        IMinimalNonfungiblePositionManager(positionMgr).safeTransferFrom(msg.sender, vault, tokenId);
+
+        // done => vault’s onERC721Received triggers => minted=0 if mismatch
     }
 }
